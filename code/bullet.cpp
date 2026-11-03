@@ -1333,17 +1333,28 @@ void BulletClass::Detonate(Coord const & coord)
 	**	Decoy creation effect.
 	*/
 	if (warhead->CreatesDecoy) {
+
+		switch (warhead->DecoyOwner) {
+			case EFFECT_OWNER_NEUTRAL:
+				owner = House_From_HousesType(HouseTypeClass::From_Name("Neutral"));
+				break;
+			case EFFECT_OWNER_TARGET:
+				owner = target->House;
+				break;
+			case EFFECT_OWNER_WEAPON:
+				owner = Payback->House;
+				break;
+		}
+
 		Cell cell = coord.As_Cell();
 		CellClass* cptr = &Map[cell];
 		bool isbridge = false;
 
-		if (cptr->IsUnderBridge &&
-			coord.Z > Map.Get_Height_GL(coord) + BRIDGE_LEPTON_HEIGHT / 2) {
+		if (cptr->IsUnderBridge && coord.Z > Map.Get_Height_GL(coord) + BRIDGE_LEPTON_HEIGHT / 2) {
 			isbridge = true;
 		}
 
 		int range = CELL_LEPTON_W + (CELL_LEPTON_W >> 1);
-
 		for (FacingType i = FACING_NONE; i < FACING_COUNT; i++) {
 			if (i != FACING_NONE) {
 				cptr = &Map[cell].Adjacent_Cell(i);
@@ -1372,6 +1383,7 @@ void BulletClass::Detonate(Coord const & coord)
 				occupier = next;
 			}
 		}
+		HouseClass* owner = NULL;
 	}
 
 	Coord blast_coord = coord;
