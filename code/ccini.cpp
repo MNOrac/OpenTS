@@ -105,6 +105,7 @@
 #include "veteran.h"
 #include "voc.h"
 #include "vox.h"
+#include "warhead.h"
 #include "weapon.h"
 #include "xpipe.h"
 #include "xstraw.h"
@@ -1008,6 +1009,38 @@ RTTIType CCINIClass::Get_RTTIType(char const * section, char const * entry, RTTI
 bool CCINIClass::Put_RTTIType(char const * section, char const * entry, RTTIType value)
 {
 	return(Put_String(section, entry, Name_From_RTTI(value)));
+}
+
+
+/// <summary>
+/// Fetches an effect owner identifier from the INI database.
+/// This is used to decide which player should own an object that is created by a warhead
+/// </summary>
+/// <returns>Returns with the effect owner that matches the name recorded, or EFFECT_OWNER_NEUTRAL if
+/// the name is not recognized.</returns>
+EffectOwnerType CCINIClass::Get_EffectOwnerType(char const* section, char const* entry, EffectOwnerType defvalue) const
+{
+	char buffer[32];
+
+	Get_String(section, entry, _eowners[defvalue], buffer, sizeof(buffer));
+	for (int index = 0; index < ARRAY_SIZE(_eowners); index++) {
+		if (!strcmpi(buffer, _eowners[index])) {
+			return(EffectOwnerType)(index);
+		}
+	}
+	return(EFFECT_OWNER_NEUTRAL);
+}
+
+
+/// <summary>
+/// Stores an effect owner identifier to the INI database.
+/// </summary>
+bool CCINIClass::Put_EffectOwnerType(char const* section, char const* entry, EffectOwnerType value)
+{
+	if (value != EFFECT_OWNER_NEUTRAL) {
+		return(Put_String(section, entry, _eowners[value]));
+	}
+	return(false);
 }
 
 

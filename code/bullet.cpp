@@ -1280,6 +1280,7 @@ void BulletClass::Bullet_Explodes(bool forced)
 void BulletClass::Detonate(Coord const & coord)
 {
 	WarheadTypeClass * warhead = Warhead;
+	DynamicVectorClass<TechnoClass const*> candidates; //TechnoTypes hit by the detonation who can then be selected for additional effects
 
 	if (warhead->IsEMEffect) {
 		new EMPulseClass(coord.As_Cell(), Warhead->SpreadFactor, Strength, Payback);
@@ -1326,6 +1327,51 @@ void BulletClass::Detonate(Coord const & coord)
 	else {
 		Explosion_Damage(coord, Strength, Payback, warhead, true);
 		if (!IsActive) return;
+	}
+
+	/*
+	**	Decoy creation effect.
+	*/
+	if (warhead->CreatesDecoy) {
+		Cell cell = coord.As_Cell();
+		CellClass* cptr = &Map[cell];
+		bool isbridge = false;
+
+		if (cptr->IsUnderBridge &&
+			coord.Z > Map.Get_Height_GL(coord) + BRIDGE_LEPTON_HEIGHT / 2) {
+			isbridge = true;
+		}
+
+		int range = CELL_LEPTON_W + (CELL_LEPTON_W >> 1);
+
+		for (FacingType i = FACING_NONE; i < FACING_COUNT; i++) {
+			if (i != FACING_NONE) {
+				cptr = &Map[cell].Adjacent_Cell(i);
+			}
+			ObjectClass* occupier = cptr->Cell_Occupier(isbridge);
+
+			while (occupier != NULL) {
+				ObjectClass* next = occupier->Next;
+				if (occupier != Payback && occupier->IsActive && occupier->IsDown && occupier->Strength > 0 && !occupier->IsInLimbo) {
+					TechnoClass const* techno = dynamic_cast<TechnoClass const*>(occupier);
+					if (techno != NULL) {
+						switch (occupier->RTTI) {
+							case RTTI_UNIT:
+							case RTTI_INFANTRY:
+							case RTTI_AIRCRAFT: {
+								int distance = Explosion_Distance(coord, occupier->Target_Coord());
+								if (distance < range && warhead->Modifier[techno->Class_Of()->Armor] != 0) {
+									candidates.Delete(techno);
+									candidates.Add(techno);
+								}
+								break;
+							}
+						}
+					}
+				}
+				occupier = next;
+			}
+		}
 	}
 
 	Coord blast_coord = coord;

@@ -37,6 +37,12 @@
 
 #include "armor.hh"
 
+enum EffectOwnerType {
+	EFFECT_OWNER_NEUTRAL,
+	EFFECT_OWNER_TARGET,
+	EFFECT_OWNER_WEAPON
+};
+
 class AnimTypeClass;
 class ParticleSystemTypeClass;
 
@@ -209,6 +215,18 @@ class WarheadTypeClass : public AbstractTypeClass
 		 * chosen according to the strength of the damage.
 		 */
 		bool IsEMEffect;
+
+		/*
+		 * If this warhead creates a decoy clone of the unit hit with the warhead, then this
+		 * flag will be true.
+		 */
+		bool CreatesDecoy;
+
+		/* If the warhead creates a decoy, this controls who owns the decoy. The enum supports
+		 * NEUTRAL (neutral house), TARGET (Same owner as the targeted unit), and WEAPON
+		 * (the owner of the unit that fired the weapon)
+		 */
+		EffectOwnerType DecoyOwner;
 
 		/*
 		 * If this warhead is what the veins and the veinhole monster attack with, then this

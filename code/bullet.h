@@ -39,7 +39,7 @@
 
 #include "draw.hh"
 
-
+template<class T> class DynamicVectorClass;
 class BulletTypeClass;
 class TechnoClass;
 class WeaponTypeClass;
