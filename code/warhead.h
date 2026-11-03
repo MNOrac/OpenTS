@@ -36,12 +36,7 @@
 #include "typelist.h"
 
 #include "armor.hh"
-
-enum EffectOwnerType {
-	EFFECT_OWNER_NEUTRAL,
-	EFFECT_OWNER_TARGET,
-	EFFECT_OWNER_WEAPON
-};
+#include "warhead.hh"
 
 class AnimTypeClass;
 class ParticleSystemTypeClass;

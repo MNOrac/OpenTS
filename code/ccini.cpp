@@ -891,6 +891,13 @@ const char * _mzones[MZONE_COUNT] = {
 };
 
 
+const char* _eowners[EFFECT_OWNER_COUNT] = {
+	"Neutral",
+	"Target",
+	"Weapon"
+};
+
+
 /// <summary>
 /// Fetches a movement zone identifier from the INI database.
 /// This is the movement class that the pathfinding and zone logic use to decide what

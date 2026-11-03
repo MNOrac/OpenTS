@@ -70,7 +70,6 @@
 #include "voc.hh"
 #include "vox.hh"
 #include "vq.hh"
-#include "warhead.h"
 #include "warhead.hh"
 #include "weapon.hh"
 

@@ -64,3 +64,18 @@ enum WarheadType {
 	WARHEAD_COUNT,
 	WARHEAD_FIRST=0
 };
+
+/**********************************************************************
+**	Warheads can cause effects to be spawned that need an owner.
+**  This enum makes it slightly easier to configure this behavior by
+**  allowing a string for Neutral, Target owner, or Weapon Owner to be
+**  specified in ini keys.
+*/
+enum EffectOwnerType {
+	EFFECT_OWNER_NEUTRAL,
+	EFFECT_OWNER_TARGET,
+	EFFECT_OWNER_WEAPON,
+
+	EFFECT_OWNER_COUNT,
+	EFFECT_OWNER_FIRST = 0,
+};
