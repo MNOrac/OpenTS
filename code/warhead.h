@@ -215,7 +215,7 @@ class WarheadTypeClass : public AbstractTypeClass
 		 * If this warhead creates a decoy clone of the unit hit with the warhead, then this
 		 * flag will be true.
 		 */
-		bool CreatesDecoy;
+		bool CreatesDecoys;
 
 		/* If the warhead creates a decoy, this controls who owns the decoy. The enum supports
 		 * NEUTRAL (neutral house), TARGET (Same owner as the targeted unit), and WEAPON

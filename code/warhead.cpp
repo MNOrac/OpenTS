@@ -111,7 +111,7 @@ WarheadTypeClass::WarheadTypeClass(char const * ininame) :
 	IsRocker(false),
 	IsBright(false),
 	IsEMEffect(false),
-	CreatesDecoy(false),
+	CreatesDecoys(false),
 	DecoyOwner(EFFECT_OWNER_NEUTRAL),
 	IsVeinhole(false)
 {
@@ -187,7 +187,7 @@ bool WarheadTypeClass::Read_INI(CCINIClass const & ini)
 		}
 		LimpetFactor = ini.Get_Float(Name(), "LimpetFactor", LimpetFactor);
 
-		CreatesDecoy = ini.Get_Bool(Name(), "CreatesDecoy", CreatesDecoy);
+		CreatesDecoys = ini.Get_Bool(Name(), "CreatesDecoys", CreatesDecoys);
 		DecoyOwner = ini.Get_EffectOwnerType(Name(), "DecoyOwner", DecoyOwner);
 
 		ProneDamage = ini.Get_Float(Name(), "ProneDamage", ProneDamage);
@@ -279,7 +279,7 @@ void WarheadTypeClass::Serialize(SaveStreamClass & stream)
 	stream.Serialize(IsRocker);
 	stream.Serialize(IsBright);
 	stream.Serialize(IsEMEffect);
-	stream.Serialize(CreatesDecoy);
+	stream.Serialize(CreatesDecoys);
 	stream.Serialize(DecoyOwner);
 	stream.Serialize(IsVeinhole);
 }
