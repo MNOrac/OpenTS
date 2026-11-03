@@ -70,6 +70,7 @@
 #include "voc.hh"
 #include "vox.hh"
 #include "vq.hh"
+#include "warhead.h"
 #include "warhead.hh"
 #include "weapon.hh"
 
@@ -155,7 +156,7 @@ class CCINIClass : public INIClass
 		HSVClass Get_HSVClass(char const * section, char const * entry, HSVClass const & defvalue) const;
 		BSizeType Get_BSizeType(char const * section, char const * entry, BSizeType defvalue) const;
 		MZoneType Get_MZoneType(char const * section, char const * entry, MZoneType defvalue) const;
-		EffectOwnerType Get_EffectOwnerType(char const* section, char const* entry, EffectOwnerType defvalue) const;
+		EffectOwnerType Get_EffectOwnerType(char const * section, char const * entry, EffectOwnerType defvalue) const;
 		ActionType Get_ActionType(char const * section, char const * entry, ActionType defvalue) const;
 		SuperWeaponType Get_SuperWeaponType(char const * section, char const * entry, SuperWeaponType defvalue) const;
 		VoxType Get_VoxType(char const * section, char const * entry, VoxType defvalue) const;
@@ -201,7 +202,7 @@ class CCINIClass : public INIClass
 		bool Put_HSVClass(char const * section, char const * entry, HSVClass const & value);
 		bool Put_BSizeType(char const * section, char const * entry, BSizeType value);
 		bool Put_MZoneType(char const * section, char const * entry, MZoneType value);
-		bool Put_EffectOwnerType(char const* section, char const* entry, EffectOwnerType value);
+		bool Put_EffectOwnerType(char const * section, char const * entry, EffectOwnerType value);
 		bool Put_ActionType(char const * section, char const * entry, ActionType value);
 		bool Put_SuperWeaponType(char const * section, char const * entry, SuperWeaponType value);
 		bool Put_VoxType(char const * section, char const * entry, VoxType value);
