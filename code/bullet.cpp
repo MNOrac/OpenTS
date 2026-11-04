@@ -1449,6 +1449,14 @@ void BulletClass::Detonate(Coord const & coord)
 
 			decoy->ArmorBias = Rule->DecoyArmorBias;
 			decoy->DecoyLifetimeTimer = Rule->DecoyLifetime;
+
+			if (Rule->DecoySpawnAnim != NULL) {
+				AnimClass* anim = new AnimClass(Rule->DecoySpawnAnim, decoy->Center_Coord());
+				if (anim != NULL) {
+					anim->Loops = 0;
+				}
+			}
+
 			decoy->Enter_Idle_Mode(true);
 			decoy->Commence();
 		}

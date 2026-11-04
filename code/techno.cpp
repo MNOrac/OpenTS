@@ -2992,6 +2992,11 @@ bool TechnoClass::Is_Voxel_Loaded(void) const
  *=============================================================================================*/
 void TechnoClass::AI(void)
 {
+	if (IsADecoy && DecoyLifetimeTimer == 0) {
+		Do_DecoyDie();
+		return;
+	}
+
 	if (Is_Voxel_Loaded()) {
 		Rocking_AI();
 		if (!IsActive) {
@@ -8312,6 +8317,27 @@ bool TechnoClass::Should_Self_Heal_Now(void) const
 		return(false);
 	}
 	return(HealthRatio > TClass->Self_Heal_Cap() ? false : true);
+}
+
+/// <summary>
+/// Handles removing decoys when they are killed or their time elapses
+/// </summary>
+void TechnoClass::Do_DecoyDie(void)
+{
+	if (!IsADecoy) {
+		return;
+	}
+
+	Coord coord = Center_Coord();
+	if (Rule->DecoyFadeAnim != NULL) {
+		AnimClass* anim = new AnimClass(Rule->DecoyFadeAnim, coord);
+		if (anim != NULL) {
+			anim->Loops = 0;
+		}
+	}
+
+	Limbo();
+	Delete_Me();
 }
 
 

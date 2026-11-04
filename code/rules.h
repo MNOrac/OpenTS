@@ -2310,4 +2310,11 @@ class RulesClass
 		* Should decoys die if they take even the slightest bit of damage?
 		*/
 		bool DecoysDieInstantly;
+
+		/*
+		 * Animations to play when creating and destroying a decoy.
+		 */
+		AnimTypeClass const * DecoySpawnAnim;
+		AnimTypeClass const * DecoyFadeAnim;
 };
+

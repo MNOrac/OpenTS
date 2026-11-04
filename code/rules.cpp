@@ -1339,6 +1339,8 @@ bool RulesClass::General(CCINIClass const & ini)
 		DecoyArmorBias = ini.Get_Float(GENERAL, "DecoyArmor", DecoyArmorBias);
 		DecoyLifetime = ini.Get_Int(GENERAL, "DecoyLifetime", DecoyLifetime);
 		DecoysDieInstantly = ini.Get_Bool(GENERAL, "DecoysDieInstantly", DecoysDieInstantly);
+		DecoySpawnAnim = TGet_Class(ini, GENERAL, "DecoySpawnAnim", DecoySpawnAnim);
+		DecoyFadeAnim = TGet_Class(ini, GENERAL, "DecoyFadeAnim", DecoyFadeAnim);
 
 		return(true);
 	}
@@ -2661,6 +2663,8 @@ void RulesClass::Serialize(SaveStreamClass & stream)
 	stream.Serialize(DecoyArmorBias);
 	stream.Serialize(DecoyLifetime);
 	stream.Serialize(DecoysDieInstantly);
+	stream.Serialize(DecoySpawnAnim);
+	stream.Serialize(DecoyFadeAnim);
 }
 
 
@@ -2893,6 +2897,12 @@ void RulesClass::Detach(AbstractClass const * target, bool all)
 	}
 	if (target == WebbedInfantry) {
 		WebbedInfantry = NULL;
+	}
+	if (target == DecoySpawnAnim) {
+		DecoySpawnAnim = NULL;
+	}
+	if (target == DecoyFadeAnim) {
+		DecoyFadeAnim = NULL;
 	}
 
 	BarrelDebris.Delete((VoxelAnimTypeClass const *)target);

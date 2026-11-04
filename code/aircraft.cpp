@@ -1173,8 +1173,7 @@ ResultType AircraftClass::Take_Damage(int & damage, int distance, WarheadTypeCla
 				// TODO: any decoy related disappearing effect mumbo-jumbo here
 
 				Mark(MARK_UP);
-
-				Delete_Me();
+				Do_DecoyDie();
 			}
 			else {
 

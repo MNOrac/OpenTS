@@ -720,6 +720,7 @@ class TechnoClass :	public RadioClass,
 		virtual bool Unlimbo(Coord const & , Dir256 facing=DIR_N) override;
 		virtual void Init(void) override;
 		virtual void Detach(AbstractClass const * target, bool all) override;
+		void Do_DecoyDie(void);
 
 		/*
 		 * This is the countdown that keeps the action line of a selected object on screen. It
