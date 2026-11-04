@@ -348,6 +348,13 @@ class TechnoClass :	public RadioClass,
 		bool IsALoaner;
 
 		/*
+		**  TechnoTypes that are flagged as decoys can have some of their default stats overridden
+		**  retaining their membership to the same type as their real counterparts, allowing them
+		**  to appear real to enemies.
+		*/
+		bool IsADecoy;
+
+		/*
 		**	Once a unit enters the map, then this flag is set. This flag is used to make
 		**	sure that a unit doesn't leave the map once it enters the map.
 		*/

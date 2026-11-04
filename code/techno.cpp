@@ -242,6 +242,7 @@ TechnoClass::TechnoClass(HouseClass * house) :
 	IsCloakable(false),
 	IsLeader(false),
 	IsALoaner(false),
+	IsADecoy(false),
 	IsLocked(false),
 	IsInRecoilState(false),
 	IsTethered(false),
@@ -761,6 +762,7 @@ void TechnoClass::Debug_Dump(MonoClass * mono) const
 	mono->Fill_Attrib(14, 17, 12, 1, IsCloakable ? MonoClass::INVERSE : MonoClass::NORMAL);
 	mono->Fill_Attrib(27, 13, 12, 1, IsLeader ? MonoClass::INVERSE : MonoClass::NORMAL);
 	mono->Fill_Attrib(27, 14, 12, 1, IsALoaner ? MonoClass::INVERSE : MonoClass::NORMAL);
+	mono->Fill_Attrib(27, 14, 12, 1, IsADecoy ? MonoClass::INVERSE : MonoClass::NORMAL);
 	mono->Fill_Attrib(27, 15, 12, 1, IsLocked ? MonoClass::INVERSE : MonoClass::NORMAL);
 	mono->Fill_Attrib(27, 16, 12, 1, IsInRecoilState ? MonoClass::INVERSE : MonoClass::NORMAL);
 	mono->Fill_Attrib(27, 17, 12, 1, IsTethered ? MonoClass::INVERSE : MonoClass::NORMAL);
@@ -8355,6 +8357,7 @@ void TechnoClass::Serialize(SaveStreamClass & stream)
 	stream.Serialize(IsCloakable);
 	stream.Serialize(IsLeader);
 	stream.Serialize(IsALoaner);
+	stream.Serialize(IsADecoy);
 	stream.Serialize(IsLocked);
 	stream.Serialize(IsInRecoilState);
 	stream.Serialize(IsTethered);
@@ -8421,6 +8424,7 @@ void TechnoClass::Compute_CRC(CRCEngine & crc) const
 	crc(IsCloakable);
 	crc(IsLeader);
 	crc(IsALoaner);
+	crc(IsADecoy);
 	crc(IsLocked);
 	crc(IsInRecoilState);
 	crc(IsTethered);
