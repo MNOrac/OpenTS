@@ -2295,14 +2295,14 @@ class RulesClass
 
 		// Controls for decoy behavior.
 		/*
-		 * DecoyArmorBias controls incoming damage to decoys as a multiplier the same
-		 * as other ArmorBiases.
+		 * DecoyArmorBias sets the ArmorBiase of each decoy, so that they each have a
+		 * common percentage of their real unit's toughness.
 		 */
 		float DecoyArmorBias;
 
 		/*
 		* DecoyLifetime controls how long the decoy should last before poofing out of
-		* existence, timed in seconds.
+		* existence, timed in seconds. Setting it as -1 turns off the timer.
 		*/
 		int DecoyLifetime;
 

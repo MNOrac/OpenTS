@@ -1164,42 +1164,56 @@ ResultType AircraftClass::Take_Damage(int & damage, int distance, WarheadTypeCla
 			break;
 
 		case RESULT_DESTROYED:
-			Death_Announcement();
-			if (warhead == Rule->FirestormWarhead) {
-				int count = abs(Scen->RandomNumber % 3) + 7;
-				for (int i = 0; i < count; i++) {
-					ParticleSystemClass * psys = new ParticleSystemClass(Rule->DefaultFirestormExplosionSystem, Center_Coord(), NULL, this);
-					psys->Sparks_To_Use_Random_Direction();
-				}
-			} else if (Class->Explosion_Set().Count() > 0) {
-				new AnimClass(Class->Explosion_Set().Pick(Scen->RandomNumber), Target_Coord());
-			}
-
-#if OBSOLETE
 			/*
-			**	Parachute a survivor if possible.
-			*/
-			if (Class->IsCrew && Percent_Chance(90) && Map[Center_Coord()].Is_Clear_To_Move(SPEED_FOOT, true, false)) {
-				InfantryClass * infantry = new InfantryClass(INFANTRY_E1, House->Class->House);
-				if (infantry != NULL) {
-					if (!infantry->Paradrop(Center_Coord())) {
-						delete infantry;
-					}
-				}
-			}
-#endif
+			 * If the aircraft is a decoy, don't do normal destruction and don't award any points
+			 */
+			if (IsADecoy) {
+				Transmit_Message(RADIO_OVER_OUT);
 
-			if (!Crash(source)){
+				// TODO: any decoy related disappearing effect mumbo-jumbo here
+
+				Mark(MARK_UP);
+
 				Delete_Me();
 			}
+			else {
 
+				Death_Announcement();
+				if (warhead == Rule->FirestormWarhead) {
+					int count = abs(Scen->RandomNumber % 3) + 7;
+					for (int i = 0; i < count; i++) {
+						ParticleSystemClass* psys = new ParticleSystemClass(Rule->DefaultFirestormExplosionSystem, Center_Coord(), NULL, this);
+						psys->Sparks_To_Use_Random_Direction();
+					}
+				}
+				else if (Class->Explosion_Set().Count() > 0) {
+					new AnimClass(Class->Explosion_Set().Pick(Scen->RandomNumber), Target_Coord());
+				}
+
+#if OBSOLETE
+				/*
+				**	Parachute a survivor if possible.
+				*/
+				if (Class->IsCrew && Percent_Chance(90) && Map[Center_Coord()].Is_Clear_To_Move(SPEED_FOOT, true, false)) {
+					InfantryClass* infantry = new InfantryClass(INFANTRY_E1, House->Class->House);
+					if (infantry != NULL) {
+						if (!infantry->Paradrop(Center_Coord())) {
+							delete infantry;
+						}
+					}
+				}
+#endif
+
+				if (!Crash(source)) {
+					Delete_Me();
+				}
+			}
 			break;
 
 		default:
 		case RESULT_HALF:
 			break;
 	}
-
 	return(res);
 }
 

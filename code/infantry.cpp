@@ -404,44 +404,62 @@ ResultType InfantryClass::Take_Damage(int & damage, int distance, WarheadTypeCla
 	if (res == RESULT_NONE) return(res);
 
 	if (res == RESULT_DESTROYED) {
-		Death_Announcement(source);
-		Stop_Driver();
-		Stun();
-		Mission = MISSION_NONE;
-		Assign_Mission(MISSION_GUARD);
-		Commence();
-		Kill_Cargo(source);
+		/*
+		 * If the infantry is a decoy, don't do normal death and don't award any points
+		 */
+		if (IsADecoy) {
+			Transmit_Message(RADIO_OVER_OUT);
+			Stun();
 
-		bool delthis = false;
-		if (forced && Class->IsCyborg) {
-			delthis = true;
-			if (IsToExplode) {
-				new AnimClass(Rule->InfantryExplode, PositionCoord);
-			}
+			// TODO: any decoy related disappearing effect mumbo-jumbo here
+
+			Mark(MARK_UP);
+
+			Delete_Me();
 		}
+		else {
 
-		if (HeightAGL <= 10 && Map[(Coord const &)PositionCoord].Land_Type() == LAND_WATER && IsToExplode) {
-			new AnimClass(Rule->Wake, PositionCoord);
-			new AnimClass(Rule->SplashList[0], PositionCoord + Coord(0,0,3));
-			delthis = true;
-		} else if (Class->IsCyborg && IsProne) {
-			new AnimClass(Rule->InfantryExplode, PositionCoord);
-			delthis = true;
-		} else if (Class->IsJumpJet) {
-			new AnimClass(Rule->InfantryExplode, PositionCoord);
-			delthis = true;
-		} else {
+			Death_Announcement(source);
+			Stop_Driver();
+			Stun();
+			Mission = MISSION_NONE;
+			Assign_Mission(MISSION_GUARD);
+			Commence();
+			Kill_Cargo(source);
 
-			/*
-			**	The type of warhead determines the animation the infantry
-			**	will perform when killed.
-			*/
-			int infdeath = warhead != NULL ? warhead->InfantryDeath : 0;
-			if (source != NULL && source->RTTI == RTTI_BUILDING && reinterpret_cast<BuildingClass*>(source)->Class->IsLaserFence) {
-				infdeath = 5;
+			bool delthis = false;
+			if (forced && Class->IsCyborg) {
+				delthis = true;
+				if (IsToExplode) {
+					new AnimClass(Rule->InfantryExplode, PositionCoord);
+				}
 			}
 
-			switch (infdeath) {
+			if (HeightAGL <= 10 && Map[(Coord const&)PositionCoord].Land_Type() == LAND_WATER && IsToExplode) {
+				new AnimClass(Rule->Wake, PositionCoord);
+				new AnimClass(Rule->SplashList[0], PositionCoord + Coord(0, 0, 3));
+				delthis = true;
+			}
+			else if (Class->IsCyborg && IsProne) {
+				new AnimClass(Rule->InfantryExplode, PositionCoord);
+				delthis = true;
+			}
+			else if (Class->IsJumpJet) {
+				new AnimClass(Rule->InfantryExplode, PositionCoord);
+				delthis = true;
+			}
+			else {
+
+				/*
+				**	The type of warhead determines the animation the infantry
+				**	will perform when killed.
+				*/
+				int infdeath = warhead != NULL ? warhead->InfantryDeath : 0;
+				if (source != NULL && source->RTTI == RTTI_BUILDING && reinterpret_cast<BuildingClass*>(source)->Class->IsLaserFence) {
+					infdeath = 5;
+				}
+
+				switch (infdeath) {
 				default:
 				case 0:
 					delthis = true;
@@ -463,8 +481,9 @@ ResultType InfantryClass::Take_Damage(int & damage, int distance, WarheadTypeCla
 				case 4:
 					if (Class->IsDoggie) {
 						Do_Action(DO_FIRE_DEATH, true);
-					} else {
-						AnimClass * anim = new AnimClass(Rule->FlamingInfantry, PositionCoord);
+					}
+					else {
+						AnimClass* anim = new AnimClass(Rule->FlamingInfantry, PositionCoord);
 						anim->AlternativeDrawer = ColorSchemes[PlayerPtr->Scheme]->Converter;
 						delthis = true;
 					}
@@ -473,18 +492,20 @@ ResultType InfantryClass::Take_Damage(int & damage, int distance, WarheadTypeCla
 				case 5:
 					if (Class->IsDoggie) {
 						Do_Action(DO_FIRE_DEATH, true);
-					} else {
-						AnimClass * anim = new AnimClass(AnimTypes[ANIM_ELECT_DIE], PositionCoord);
+					}
+					else {
+						AnimClass* anim = new AnimClass(AnimTypes[ANIM_ELECT_DIE], PositionCoord);
 						delthis = true;
 					}
 					break;
+				}
 			}
-		}
 
-		if (delthis) {
-			Delete_Me();
+			if (delthis) {
+				Delete_Me();
+			}
+			return(res);
 		}
-		return(res);
 	}
 
 	/*

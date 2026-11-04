@@ -466,7 +466,9 @@ void UnitClass::AI(void)
 {
 	if (DeathCounter != -1) {
 		if (DeathCounter++ >= Class->MaxDeathCounter) {
-			Explode();
+			if (!IsADecoy) {
+				Explode();
+			}
 			Mark(MARK_UP);
 			Delete_Me();
 			return;
@@ -1407,141 +1409,166 @@ ResultType UnitClass::Take_Damage(int & damage, int distance, WarheadTypeClass c
 	}
 
 	if (res == RESULT_DESTROYED) {
-		if (Class->DeathFrames > 0) {
-			if (DeathCounter == -1) {
-				DeathCounter = 0;
-			}
-			Strength = 1;
-			IsActive = true;
-		} else {
-			Death_Announcement(source);
-			if (warhead == Rule->FirestormWarhead) {
-				int count = 7 + abs(Scen->RandomNumber % 3);
-				while (count > 0) {
-					ParticleSystemClass * partsys = new ParticleSystemClass(Rule->DefaultFirestormExplosionSystem, Center_Coord(), NULL, this);
-					partsys->Sparks_To_Use_Random_Direction();
-					count--;
-				} ;
-			} else if (HeightAGL <= 10 && IsToExplode && Map[Get_Coord()].Land_Type() == LAND_WATER) {
-				new AnimClass(Rule->Wake, PositionCoord);
-				new AnimClass(Rule->SplashList[Rule->SplashList.Count() - 1], PositionCoord + Coord(0, 0, 5));
-			} else {
-				Explode();
-			}
 
-			if (Class->IsTrain) {
-				if (IsFollowing) {
-					for (int i = 0; i < Units.Count(); i++) {
-						if (Units[i]->FollowingMe == this) {
-							Units[i]->FollowingMe = NULL;
-						}
-					}
-					IsFollowing = false;
-				}
-				UnitClass * tmp = FollowingMe;
+		/*
+		* If the object is a decoy, don't do normal destruction and don't award any points
+		*/
+		if (IsADecoy) {
+			Transmit_Message(RADIO_OVER_OUT);
+			Stun();
 
-				while (tmp != NULL) {
-					if (tmp->NavCom != NULL) {
-						tmp->Locomotion->Stop_Moving();
-					}
-					if (tmp == tmp->FollowingMe) {
-						tmp->FollowingMe = NULL;
-						break;
-					}
-					tmp = tmp->FollowingMe;
-				}
-			}
+			// TODO: any decoy related disappearing effect mumbo-jumbo here
 
 			Mark(MARK_UP);
 
-			while (Cargo.Is_Something_Attached()) {
-				FootClass * object = Cargo.Detach_Object();
+			Delete_Me();
+		}
+		else {
 
-				if (object == NULL) break;		// How can this happen?
-
-				ScenarioInit++;
-				object->IsOnBridge = IsOnBridge;
-
-				/*
-				**	A passenger can run from a destroyed vehicle, if the ground it stood on
-				**	will take it. Even then, it is not a sure thing.
-				*/
-				if (!forced && !IsToExplode && object->Can_Enter_Cell(&Map[Get_Coord()]) == MOVE_OK && object->Unlimbo(PositionCoord, DIR_N)) {
-					object->Scatter(COORD_NONE, true);
-					if (select) object->Select();
-				} else {
-					object->Record_The_Kill(source);
-					delete object;
+			if (Class->DeathFrames > 0) {
+				if (DeathCounter == -1) {
+					DeathCounter = 0;
+				}
+				Strength = 1;
+				IsActive = true;
+			}
+			else {
+				Death_Announcement(source);
+				if (warhead == Rule->FirestormWarhead) {
+					int count = 7 + abs(Scen->RandomNumber % 3);
+					while (count > 0) {
+						ParticleSystemClass* partsys = new ParticleSystemClass(Rule->DefaultFirestormExplosionSystem, Center_Coord(), NULL, this);
+						partsys->Sparks_To_Use_Random_Direction();
+						count--;
+					};
+				}
+				else if (HeightAGL <= 10 && IsToExplode && Map[Get_Coord()].Land_Type() == LAND_WATER) {
+					new AnimClass(Rule->Wake, PositionCoord);
+					new AnimClass(Rule->SplashList[Rule->SplashList.Count() - 1], PositionCoord + Coord(0, 0, 5));
+				}
+				else {
+					Explode();
 				}
 
-				ScenarioInit--;
-			}
+				if (Class->IsTrain) {
+					if (IsFollowing) {
+						for (int i = 0; i < Units.Count(); i++) {
+							if (Units[i]->FollowingMe == this) {
+								Units[i]->FollowingMe = NULL;
+							}
+						}
+						IsFollowing = false;
+					}
+					UnitClass* tmp = FollowingMe;
 
-			/*
-			**	Possibly have the crew member run away.
-			*/
-			bool make_crew = false;
-			bool make_infiltrator = false;
-			InfantryClass * i = NULL;
+					while (tmp != NULL) {
+						if (tmp->NavCom != NULL) {
+							tmp->Locomotion->Stop_Moving();
+						}
+						if (tmp == tmp->FollowingMe) {
+							tmp->FollowingMe = NULL;
+							break;
+						}
+						tmp = tmp->FollowingMe;
+					}
+				}
 
-			if (EnteredByInfType == INFANTRY_NONE) {
-				if (!no_crew && Class->IsCrew && Class->Max_Passengers() == 0) {
-					if (Rule->CrewEscape > Random_Double(0.0, 1.0)) {
-						if (EnteredByInfType != INFANTRY_NONE) {
-							make_infiltrator = true;
-						} else {
-							make_crew = true;
+				Mark(MARK_UP);
+
+				while (Cargo.Is_Something_Attached()) {
+					FootClass* object = Cargo.Detach_Object();
+
+					if (object == NULL) break;		// How can this happen?
+
+					ScenarioInit++;
+					object->IsOnBridge = IsOnBridge;
+
+					/*
+					**	A passenger can run from a destroyed vehicle, if the ground it stood on
+					**	will take it. Even then, it is not a sure thing.
+					*/
+					if (!forced && !IsToExplode && object->Can_Enter_Cell(&Map[Get_Coord()]) == MOVE_OK && object->Unlimbo(PositionCoord, DIR_N)) {
+						object->Scatter(COORD_NONE, true);
+						if (select) object->Select();
+					}
+					else {
+						object->Record_The_Kill(source);
+						delete object;
+					}
+
+					ScenarioInit--;
+				}
+
+				/*
+				**	Possibly have the crew member run away.
+				*/
+				bool make_crew = false;
+				bool make_infiltrator = false;
+				InfantryClass* i = NULL;
+
+				if (EnteredByInfType == INFANTRY_NONE) {
+					if (!no_crew && Class->IsCrew && Class->Max_Passengers() == 0) {
+						if (Rule->CrewEscape > Random_Double(0.0, 1.0)) {
+							if (EnteredByInfType != INFANTRY_NONE) {
+								make_infiltrator = true;
+							}
+							else {
+								make_crew = true;
+							}
 						}
 					}
 				}
-			} else {
-				make_infiltrator = true;
-			}
-
-			if (make_infiltrator) {
-				i = new InfantryClass(InfantryTypes[EnteredByInfType], House);
-			}
-
-			if (make_crew) {
-				InfantryTypeClass const * crew = Crew_Type();
-				if (crew) {
-					i = new InfantryClass(crew, House);
+				else {
+					make_infiltrator = true;
 				}
-			}
 
-			if (i != NULL) {
-				i->IsOnBridge = IsOnBridge;
-				if (i->Unlimbo(PositionCoord, DIR_N)) {
-					i->Strength = Random_Pick(5, (int)i->Class->MaxStrength/2);
-					i->Scatter(COORD_NONE, true);
-					if (!House->Is_Human_Player()) {
-						i->Assign_Mission(MISSION_HUNT);
-					} else {
-						i->Assign_Mission(MISSION_GUARD);
+				if (make_infiltrator) {
+					i = new InfantryClass(InfantryTypes[EnteredByInfType], House);
+				}
+
+				if (make_crew) {
+					InfantryTypeClass const* crew = Crew_Type();
+					if (crew) {
+						i = new InfantryClass(crew, House);
 					}
-					if (select) i->Select();
-					if (Tag != NULL && Tag->Is_To_Inherit()) i->Attach_Tag(Tag);
-				} else {
-					delete i;
 				}
-			}
 
-			/*
-			**	If this is a truck, there is a possibility that a crate will drop out
-			**	if the scenario so indicates and there is room.
-			*/
-			if (Class->IsCarriesCrate && (Scen->IsTruckCrate && !Class->IsTrain || Scen->IsTrainCargo && Class->IsTrain)) {
-				Cell cell = Map.Nearby_Location(PositionCell, SPEED_TRACK, -1, MZONE_NORMAL, false, Point2D(1,1), true);
-				if (cell != CELL_NONE) {
-					new OverlayClass(Rule->WoodCrateImg, cell);
-					Map[cell].Register_For_Redraw();
+				if (i != NULL) {
+					i->IsOnBridge = IsOnBridge;
+					if (i->Unlimbo(PositionCoord, DIR_N)) {
+						i->Strength = Random_Pick(5, (int)i->Class->MaxStrength / 2);
+						i->Scatter(COORD_NONE, true);
+						if (!House->Is_Human_Player()) {
+							i->Assign_Mission(MISSION_HUNT);
+						}
+						else {
+							i->Assign_Mission(MISSION_GUARD);
+						}
+						if (select) i->Select();
+						if (Tag != NULL && Tag->Is_To_Inherit()) i->Attach_Tag(Tag);
+					}
+					else {
+						delete i;
+					}
 				}
-			}
 
-			/*
-			**	Finally, delete the vehicle.
-			*/
-			Delete_Me();
+				/*
+				**	If this is a truck, there is a possibility that a crate will drop out
+				**	if the scenario so indicates and there is room.
+				*/
+				if (Class->IsCarriesCrate && (Scen->IsTruckCrate && !Class->IsTrain || Scen->IsTrainCargo && Class->IsTrain)) {
+					Cell cell = Map.Nearby_Location(PositionCell, SPEED_TRACK, -1, MZONE_NORMAL, false, Point2D(1, 1), true);
+					if (cell != CELL_NONE) {
+						new OverlayClass(Rule->WoodCrateImg, cell);
+						Map[cell].Register_For_Redraw();
+					}
+				}
+
+				/*
+				**	Finally, delete the vehicle.
+				*/
+				Delete_Me();
+			}
 		}
 
 	} else {

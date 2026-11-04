@@ -5114,7 +5114,7 @@ ResultType TechnoClass::Take_Damage(int & damage, int distance, WarheadTypeClass
 			 * Spawn destruction debris -- either the explicit voxel debris list (with
 			 * per-type maximums) or generic metallic debris animations.
 			 */
-			if (TClass->MaxDebris > 0) {
+			if (TClass->MaxDebris > 0 && !IsADecoy) {
 				if (TClass->DebrisTypes.Count() > 0) {
 					int remaining = TClass->MaxDebris;
 					for (int index = 0; remaining > 0; index++) {
