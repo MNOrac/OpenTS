@@ -57,6 +57,7 @@
 #include "_surface.h"
 #include "_tactica.h"
 #include "aircraft.h"
+#include "airctype.h"
 #include "anim.h"
 #include "building.h"
 #include "bullettype.h"
@@ -70,6 +71,7 @@
 #include "house.h"
 #include "houstype.h"
 #include "infantry.h"
+#include "infatype.h"
 #include "inline.h"
 #include "lightcon.h"
 #include "map.h"
@@ -86,8 +88,10 @@
 #include "techno.h"
 #include "tracker.h"
 #include "unit.h"
+#include "unittype.h"
 #include "voxdrsys.h"
 #include "warhead.h"
+#include "warhead.hh"
 #include "weapon.h"
 
 #include <algorithm>
@@ -161,6 +165,25 @@ void BulletClass::Set_Bullet_Data(BulletTypeClass const *type, AbstractClass *ta
 	Range = range;
 	AnimFrame = 0;
 	AnimRate = Class->AnimRate;
+}
+
+
+/// <summary>
+/// A duplicate of Explosion_Distance from combat.cpp. Determines the distance between
+/// two points, ignoring a slight height difference. This routine is used when are
+/// warhead is calculating the radius of a secondary effect, so that a victim perched
+/// a fraction of a level above or below the blast is not judged to be further away
+/// than one standing level with it.
+/// </summary>
+/// <returns>Returns with the distance between the two coordinates.</returns>
+inline static int Effective_Distance(Coord const& coord1, Coord const& coord2)
+{
+	int z1 = coord1.Z;
+	int z2 = coord2.Z;
+	if (abs(z2 - z1) < LEVEL_LEPTON_H) {
+		z2 = coord1.Z;
+	}
+	return(Coord(coord1.X - coord2.X, coord1.Y - coord2.Y, z1 - z2).Length());
 }
 
 
@@ -1332,19 +1355,7 @@ void BulletClass::Detonate(Coord const & coord)
 	/*
 	**	Decoy creation effect.
 	*/
-	if (warhead->CreatesDecoy) {
-
-		switch (warhead->DecoyOwner) {
-			case EFFECT_OWNER_NEUTRAL:
-				owner = House_From_HousesType(HouseTypeClass::From_Name("Neutral"));
-				break;
-			case EFFECT_OWNER_TARGET:
-				owner = target->House;
-				break;
-			case EFFECT_OWNER_WEAPON:
-				owner = Payback->House;
-				break;
-		}
+	if (warhead->CreatesDecoys && Payback != NULL) {
 
 		Cell cell = coord.As_Cell();
 		CellClass* cptr = &Map[cell];
@@ -1355,9 +1366,9 @@ void BulletClass::Detonate(Coord const & coord)
 		}
 
 		int range = CELL_LEPTON_W + (CELL_LEPTON_W >> 1);
-		for (FacingType i = FACING_NONE; i < FACING_COUNT; i++) {
+		for (int i = FACING_NONE; i < FACING_COUNT; i++) {
 			if (i != FACING_NONE) {
-				cptr = &Map[cell].Adjacent_Cell(i);
+				cptr = &Map[cell].Adjacent_Cell((FacingType)i);
 			}
 			ObjectClass* occupier = cptr->Cell_Occupier(isbridge);
 
@@ -1370,7 +1381,7 @@ void BulletClass::Detonate(Coord const & coord)
 							case RTTI_UNIT:
 							case RTTI_INFANTRY:
 							case RTTI_AIRCRAFT: {
-								int distance = Explosion_Distance(coord, occupier->Target_Coord());
+								int distance = Effective_Distance(coord, occupier->Target_Coord());
 								if (distance < range && warhead->Modifier[techno->Class_Of()->Armor] != 0) {
 									candidates.Delete(techno);
 									candidates.Add(techno);
@@ -1383,7 +1394,58 @@ void BulletClass::Detonate(Coord const & coord)
 				occupier = next;
 			}
 		}
-		HouseClass* owner = NULL;
+
+		for (int i = 0; i < candidates.Count(); i++) {
+
+			TechnoClass const* target = candidates[i];
+			TechnoTypeClass const* type = static_cast<TechnoTypeClass const*>(target->Class_Of());
+			HouseClass* owner = NULL;
+
+			switch (warhead->DecoyOwner) {
+			case EFFECT_OWNER_NEUTRAL: // Neutral is the default initialized value for warheads
+				owner = House_From_HousesType(HouseTypeClass::From_Name("Neutral"));
+				break;
+			case EFFECT_OWNER_TARGET:
+				owner = target->House;
+				break;
+			case EFFECT_OWNER_WEAPON:
+				owner = Payback->House;
+				break;
+			}
+
+			/*
+			** Create the appropriate type of decoy.
+			*/
+			FootClass* decoy = NULL;
+			switch (type->Fetch_RTTI()) {
+				case RTTI_UNITTYPE: {
+					UnitTypeClass const* unittype = static_cast<UnitTypeClass const*>(type);
+					decoy = new UnitClass(unittype, owner);
+					break;
+				}
+				case RTTI_INFANTRYTYPE: {
+					InfantryTypeClass const* infantrytype = static_cast<InfantryTypeClass const*>(type);
+					decoy = new InfantryClass(infantrytype, owner);
+					break;
+				}
+				case RTTI_AIRCRAFTTYPE: {
+					AircraftTypeClass const* aircrafttype = static_cast<AircraftTypeClass const*>(type);
+					decoy = new AircraftClass(aircrafttype, owner);
+					break;
+				}
+			}
+
+			Cell cell = target->Target_Coord().As_Cell();
+			cell = Map.Nearby_Location(cell, type->Speed, Map.Get_Cell_Zone(cell, type->MZone), type->MZone, false, Point2D(1, 1), true, true, false, false);
+
+			if (cell == CELL_NONE || !decoy->Unlimbo(cell, DIR_SW)) {
+				delete decoy;
+				continue;
+			}
+
+			decoy->Enter_Idle_Mode(true);
+			decoy->Commence();
+		}
 	}
 
 	Coord blast_coord = coord;
