@@ -8393,6 +8393,7 @@ void TechnoClass::Serialize(SaveStreamClass & stream)
 	stream.Serialize(StunDuration);
 	stream.Serialize(LimpetType);
 	stream.Serialize(LimpetSpeedFactor);
+	stream.Serialize(DecoyLifetimeTimer);
 	// ActionLineTimer -- static, shared by every object rather than owned by one.
 	// ActionLines
 	// TalkBubbleType
