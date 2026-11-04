@@ -2291,4 +2291,23 @@ class RulesClass
 		 */
 		int VeteranFlashTimer;
 		int EliteFlashTimer;
+
+
+		// Controls for decoy behavior.
+		/*
+		 * DecoyArmorBias controls incoming damage to decoys as a multiplier the same
+		 * as other ArmorBiases.
+		 */
+		float DecoyArmorBias;
+
+		/*
+		* DecoyLifetime controls how long the decoy should last before poofing out of
+		* existence, timed in seconds.
+		*/
+		int DecoyLifetime;
+
+		/*
+		* Should decoys die if they take even the slightest bit of damage?
+		*/
+		bool DecoysDieInstantly;
 };

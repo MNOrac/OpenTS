@@ -116,6 +116,11 @@ class TechnoClass :	public RadioClass,
 		CDTimerClass<FrameTimerClass> RadarFlashTimer;
 
 		/*
+		** Decoy timer. Decoys are removed when this timer expires.
+		*/
+		CDTimerClass<FrameTimerClass> DecoyLifetimeTimer;
+
+		/*
 		 * This is where this object last plotted on the radar, in radar pixels. The radar's
 		 * tracking table is keyed by it, so a moved object untracks here before plotting anew.
 		 */

@@ -1435,6 +1435,10 @@ void BulletClass::Detonate(Coord const & coord)
 				}
 			}
 
+			if (decoy != NULL) {
+				decoy->IsADecoy = true;
+			}
+
 			Cell cell = target->Target_Coord().As_Cell();
 			cell = Map.Nearby_Location(cell, type->Speed, Map.Get_Cell_Zone(cell, type->MZone), type->MZone, false, Point2D(1, 1), true, true, false, false);
 
@@ -1443,6 +1447,8 @@ void BulletClass::Detonate(Coord const & coord)
 				continue;
 			}
 
+			decoy->ArmorBias = Rule->DecoyArmorBias;
+			decoy->DecoyLifetimeTimer = Rule->DecoyLifetime;
 			decoy->Enter_Idle_Mode(true);
 			decoy->Commence();
 		}

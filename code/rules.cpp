@@ -610,7 +610,10 @@ RulesClass::RulesClass(void) :
 	UpgradeEliteSound(VOC_NONE),
 	VoxUnitPromoted(VOX_NONE),
 	VeteranFlashTimer(0),
-	EliteFlashTimer(0)
+	EliteFlashTimer(0),
+	DecoyArmorBias(1),
+	DecoyLifetime(-1),
+	DecoysDieInstantly(false)
 {
 	/// nothing
 }
@@ -1332,6 +1335,11 @@ bool RulesClass::General(CCINIClass const & ini)
 		EngineerCaptureLevel = (float)ini.Get_Float(GENERAL, "EngineerCaptureLevel", EngineerCaptureLevel);
 		EngineerDamage = (float)ini.Get_Float(GENERAL, "EngineerDamage", EngineerDamage);
 		TalkBubbleTime = int(TIMER_SECOND * ini.Get_Float(GENERAL, "TalkBubbleTime", TalkBubbleTime * (1.0f/TIMER_SECOND)));
+
+		DecoyArmorBias = ini.Get_Float(GENERAL, "DecoyArmor", DecoyArmorBias);
+		DecoyLifetime = ini.Get_Int(GENERAL, "DecoyLifetime", DecoyLifetime);
+		DecoysDieInstantly = ini.Get_Bool(GENERAL, "DecoysDieInstantly", DecoysDieInstantly);
+
 		return(true);
 	}
 	return(false);
@@ -2650,6 +2658,9 @@ void RulesClass::Serialize(SaveStreamClass & stream)
 	stream.Serialize(VoxUnitPromoted);
 	stream.Serialize(VeteranFlashTimer);
 	stream.Serialize(EliteFlashTimer);
+	stream.Serialize(DecoyArmorBias);
+	stream.Serialize(DecoyLifetime);
+	stream.Serialize(DecoysDieInstantly);
 }
 
 

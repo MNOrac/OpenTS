@@ -243,6 +243,7 @@ TechnoClass::TechnoClass(HouseClass * house) :
 	IsLeader(false),
 	IsALoaner(false),
 	IsADecoy(false),
+	DecoyLifetimeTimer(0),
 	IsLocked(false),
 	IsInRecoilState(false),
 	IsTethered(false),
@@ -3511,6 +3512,13 @@ FireErrorType TechnoClass::Can_Fire(AbstractClass * target, int which) const
 		return(FIRE_ILLEGAL);
 	}
 
+	/*
+	**	Decoys don't have guns.
+	*/
+	if (IsADecoy) {
+		return(FIRE_CANT);
+	}
+
 	TechnoClass const * techno = Dynamic_Cast<TechnoClass const *>((AbstractClass const *)target);
 	CellClass * cellptr = &Map[target->Center_Coord()];
 	WeaponTypeClass const * weapon;
@@ -4979,6 +4987,13 @@ ResultType TechnoClass::Take_Damage(int & damage, int distance, WarheadTypeClass
 	}
 
 	bool negative = damage < 0;
+
+	/*
+	 * Kill decoys instantly if they take damage and the associated setting is set.
+	 */
+	if (!negative && damage > 0 && IsADecoy && Rule->DecoysDieInstantly) {
+		Strength = 0;
+	}
 
 	/*
 	 * If not a forced damage condition, adjust damage according to the house and
