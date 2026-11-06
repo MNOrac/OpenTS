@@ -16115,6 +16115,176 @@ PBarrelThickness:
       source: code/techtype.cpp
       guard: null
     level: TechnoTypeClass
+POIDoubleUpWithEnemies:
+  key: POIDoubleUpWithEnemies
+  scopes:
+  - applies_to: *id010
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: boolean
+    status: generated
+    _provenance:
+      default_candidate: 'no'
+      declared_in: HouseTypeClass
+      member: POIDoubleUpWithEnemies
+      source: code/houstype.cpp
+      guard: null
+    level: HouseTypeClass
+POILocJitterLateral:
+  key: POILocJitterLateral
+  scopes:
+  - applies_to: *id010
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: integer
+    status: generated
+    _provenance:
+      default_candidate: '0'
+      declared_in: HouseTypeClass
+      member: POILocJitterLateral
+      source: code/houstype.cpp
+      guard: null
+    level: HouseTypeClass
+POILocJitterParallel:
+  key: POILocJitterParallel
+  scopes:
+  - applies_to: *id010
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: integer
+    status: generated
+    _provenance:
+      default_candidate: '0'
+      declared_in: HouseTypeClass
+      member: POILocJitterParallel
+      source: code/houstype.cpp
+      guard: null
+    level: HouseTypeClass
+POILocRandomBands:
+  key: POILocRandomBands
+  scopes:
+  - applies_to: *id010
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: string
+    status: generated
+    _provenance:
+      default_candidate: null
+      declared_in: HouseTypeClass
+      member: POIRandomBands
+      source: code/houstype.cpp
+      guard: null
+    level: HouseTypeClass
+POILocations:
+  key: POILocations
+  scopes:
+  - applies_to: *id010
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: string
+    status: generated
+    _provenance:
+      default_candidate: ''
+      declared_in: HouseTypeClass
+      member: POILocations
+      source: code/houstype.cpp
+      guard: null
+    level: HouseTypeClass
+POISafeDistance:
+  key: POISafeDistance
+  scopes:
+  - applies_to: *id010
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: integer
+    status: generated
+    _provenance:
+      default_candidate: '0'
+      declared_in: HouseTypeClass
+      member: POISafeDistance
+      source: code/houstype.cpp
+      guard: null
+    level: HouseTypeClass
+POIs:
+  key: POIs
+  scopes:
+  - applies_to: *id010
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: list of BuildingTypes
+    status: generated
+    _provenance:
+      default_candidate: ''
+      declared_in: HouseTypeClass
+      member: POIs
+      source: code/houstype.cpp
+      guard: null
+    level: HouseTypeClass
+POIsBaseCount:
+  key: POIsBaseCount
+  scopes:
+  - applies_to: *id010
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: integer
+    status: generated
+    _provenance:
+      default_candidate: '0'
+      declared_in: HouseTypeClass
+      member: POIsBaseCount
+      source: code/houstype.cpp
+      guard: null
+    level: HouseTypeClass
+POIsMax:
+  key: POIsMax
+  scopes:
+  - applies_to: *id010
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: integer
+    status: generated
+    _provenance:
+      default_candidate: '-1'
+      declared_in: HouseTypeClass
+      member: POIsMax
+      source: code/houstype.cpp
+      guard: null
+    level: HouseTypeClass
+POIsPerOpponent:
+  key: POIsPerOpponent
+  scopes:
+  - applies_to: *id010
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: integer
+    status: generated
+    _provenance:
+      default_candidate: '0'
+      declared_in: HouseTypeClass
+      member: POIsPerOpponent
+      source: code/houstype.cpp
+      guard: null
+    level: HouseTypeClass
 PadAircraft:
   key: PadAircraft
   scopes:
