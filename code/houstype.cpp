@@ -63,6 +63,9 @@
 
 namespace {
 
+/// <summary>
+/// Converts a case-insensitive location name to its POI rule and returns whether it is recognized.
+/// </summary>
 bool Parse_POI_Location(char const * name, POILocationType & location)
 {
 	static struct {
@@ -90,6 +93,9 @@ bool Parse_POI_Location(char const * name, POILocationType & location)
 }
 
 
+/// <summary>
+/// Parses comma-separated POI rules, logging and skipping unrecognized names.
+/// </summary>
 TypeList<POILocationType> Parse_POI_Locations(char const * section, std::string const & value)
 {
 	TypeList<POILocationType> locations;

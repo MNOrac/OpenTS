@@ -120,13 +120,14 @@ class HouseTypeClass : public AbstractTypeClass
 		TypeList<int> POIs;
 
 		/*
-		 * The minimum number of POIs that can be placed if a house that requires them is
-		 * present in the game.
+		 * The minimum number of POIs that the game will attempt to place if a house that
+		 * requires them is present in the game.
 		 */
 		int POIsBaseCount;
 
 		/*
-		 * The number of additional POIs to add per additional other player after the first.
+		 * The number of additional POIs to attempt to add per additional other player after
+		 * the first.
 		 */
 		int POIsPerOpponent;
 
@@ -148,8 +149,9 @@ class HouseTypeClass : public AbstractTypeClass
 
 		/*
 		 * Controls for the RandomBand location rule. This rule picks a valid placement cell
-		 * in a random band between these two values, which represent a minimum  and a maximum
-		 * distance from the house's starting location.
+		 * in a random band between these two values, which represent the minimum  and a maximum
+		 * distance from the house's starting location as a fraction (0 = this house's start,
+		 * 1 = the other house's start).
 		 */
 		float POILocRandomBandMin;
 		float POILocRandomBandMax;
@@ -173,8 +175,8 @@ class HouseTypeClass : public AbstractTypeClass
 		/*
 		 * POIDoubleUpWithEnemies controls whether other players' POI rules can be batched
 		 * together with this house. If they are, two opposing players' POIs at Halfway will be
-		 * consolidated into one single POI. The same goes for one player's OneThird and an
-		 * opposite player's TwoThirds, for instance.
+		 * consolidated into one single POI. The same goes for one player's OneThird and another
+		 * player's TwoThirds, for instance.
 		 */
 		bool POIDoubleUpWithEnemies;
 

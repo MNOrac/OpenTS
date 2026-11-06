@@ -2804,6 +2804,9 @@ static void Assign_Start_Positions(bool official)
 }
 
 
+/// <summary>
+/// Returns whether a placement rule needs a second active player's starting waypoint.
+/// </summary>
 static bool NeedsOpponentStart(POILocationType Location)
 {
 	switch (Location) {
@@ -2825,6 +2828,10 @@ static bool NeedsOpponentStart(POILocationType Location)
 }
 
 
+/// <summary>
+/// Returns whether a placement rule can be merged with its reciprocal rule for the same
+/// pair of starting waypoints.
+/// </summary>
 static bool IsShareableLocation(POILocationType Location)
 {
 	return Location == POILocationType::OneQuarter ||
@@ -2835,6 +2842,9 @@ static bool IsShareableLocation(POILocationType Location)
 }
 
 
+/// <summary>
+/// Returns the fractional placement rule measured from the opposite starting waypoint.
+/// </summary>
 static POILocationType ReverseLocation(POILocationType Location)
 {
 	switch (Location) {
@@ -2854,6 +2864,10 @@ static POILocationType ReverseLocation(POILocationType Location)
 }
 
 
+/// <summary>
+/// Returns classified houses that are not observers, defeated, or passive and whose valid spawn
+/// waypoint is occupied by that same house, sorted by waypoint.
+/// </summary>
 static std::vector<HouseClass *> ActiveStartHouses(void)
 {
 	std::vector<HouseClass *> ActiveHouses;
@@ -2878,6 +2892,9 @@ constexpr std::size_t POI_LOCATION_COUNT = static_cast<std::size_t>(POILocationT
 constexpr int POI_PLACEMENT_ATTEMPTS = 6;
 
 
+/// <summary>
+/// Returns whether a waypoint has already been assigned for the given placement rule.
+/// </summary>
 static bool AlreadyUsedOpponent(std::array<std::vector<int>, POI_LOCATION_COUNT> const & AssignedOpponents,
 	POILocationType Location, int Waypoint)
 {
@@ -2886,6 +2903,9 @@ static bool AlreadyUsedOpponent(std::array<std::vector<int>, POI_LOCATION_COUNT>
 }
 
 
+/// <summary>
+/// Returns whether a request matches an existing request's building, waypoint pair, and reciprocal rule.
+/// </summary>
 static bool IsReciprocalRequest(POIPlacementRequest const & Existing, int Building, POILocationType Location,
 	int StartWaypoint, int OtherWaypoint)
 {
@@ -2905,9 +2925,8 @@ static bool IsReciprocalRequest(POIPlacementRequest const & Existing, int Buildi
 
 
 /// <summary>
-/// Builds the requested POI placements from active houses' rules without choosing cells or
-/// creating buildings. Reciprocal fractional requests are merged when either requesting house
-/// enables POIDoubleUpWithEnemies.
+/// Builds requests from active houses' POI rules, applying per-instance counts and the house-type cap.
+/// Matching reciprocal fractional requests are merged when either requester enables POIDoubleUpWithEnemies.
 /// </summary>
 /// <returns>Returns requests in house-type, start-waypoint, and rule-list order.</returns>
 static std::vector<POIPlacementRequest> Build_POI_Placement_Requests(void)
@@ -3014,6 +3033,9 @@ static std::vector<POIPlacementRequest> Build_POI_Placement_Requests(void)
 }
 
 
+/// <summary>
+/// Returns whether a cell lies within the map rectangle.
+/// </summary>
 static bool Is_POI_Cell_In_Map(Cell const & Cell)
 {
 	return Cell.X >= Map.MapRect.X && Cell.Y >= Map.MapRect.Y &&
@@ -3021,6 +3043,9 @@ static bool Is_POI_Cell_In_Map(Cell const & Cell)
 }
 
 
+/// <summary>
+/// Returns the squared straight-line distance between two cells.
+/// </summary>
 static std::int64_t POI_Cell_Distance_Squared(Cell const & First, Cell const & Second)
 {
 	std::int64_t DeltaX = First.X - Second.X;
@@ -3029,6 +3054,9 @@ static std::int64_t POI_Cell_Distance_Squared(Cell const & First, Cell const & S
 }
 
 
+/// <summary>
+/// Returns whether a candidate satisfies each requester's safe-distance rules against active starts and placed POIs.
+/// </summary>
 static bool Is_POI_Location_Safe(POIPlacementRequest const & Request, Cell const & Candidate,
 	std::vector<HouseClass *> const & ActiveHouses, std::vector<POIPlacedLocation> const & PlacedPOIs)
 {
@@ -3061,6 +3089,9 @@ static bool Is_POI_Location_Safe(POIPlacementRequest const & Request, Cell const
 }
 
 
+/// <summary>
+/// Returns the coordinate at a fraction between two cell coordinates, rounded to the nearest cell.
+/// </summary>
 static int POI_Interpolate_Cell(int Start, int End, int Numerator, int Denominator)
 {
 	std::int64_t Offset = static_cast<std::int64_t>(End - Start) * Numerator;
@@ -3071,6 +3102,9 @@ static int POI_Interpolate_Cell(int Start, int End, int Numerator, int Denominat
 }
 
 
+/// <summary>
+/// Returns the cell at a fractional placement rule, or CELL_NONE for a non-fractional rule.
+/// </summary>
 static Cell POI_Fractional_Cell(POIPlacementRequest const & Request)
 {
 	int Numerator = 0;
@@ -3107,6 +3141,10 @@ static Cell POI_Fractional_Cell(POIPlacementRequest const & Request)
 }
 
 
+/// <summary>
+/// Returns candidate cells for the request's configured placement rule.
+/// Random placement is selected directly by the placement routine.
+/// </summary>
 static std::vector<Cell> POI_Location_Candidates(POIPlacementRequest const & Request,
 	std::vector<HouseClass *> const & ActiveHouses, std::vector<POIPlacedLocation> const & PlacedPOIs)
 {
@@ -3213,6 +3251,9 @@ static std::vector<Cell> POI_Location_Candidates(POIPlacementRequest const & Req
 }
 
 
+/// <summary>
+/// Returns whether amphibious movement from a house's spawn can reach a cell beside the foundation.
+/// </summary>
 static bool Is_POI_Reachable_From_House(HouseClass const * House, std::vector<Cell> const & Foundation)
 {
 	if (House == nullptr || House->SpawnWaypoint < 0 || !Scen->Is_Valid_Waypoint(House->SpawnWaypoint)) {
@@ -3244,6 +3285,9 @@ static bool Is_POI_Reachable_From_House(HouseClass const * House, std::vector<Ce
 }
 
 
+/// <summary>
+/// Returns whether a building can legally occupy the candidate cell and is reachable by every requester.
+/// </summary>
 static bool Is_POI_Placement_Valid(POIPlacementRequest const & Request, BuildingTypeClass * Type,
 	HouseClass * Neutral, Cell const & PlacementCell, std::vector<HouseClass *> const & ActiveHouses,
 	std::vector<POIPlacedLocation> const & PlacedPOIs)
@@ -3281,6 +3325,10 @@ static bool Is_POI_Placement_Valid(POIPlacementRequest const & Request, Building
 }
 
 
+/// <summary>
+/// Creates the neutral-owned building at the candidate cell if validation and creation succeed.
+/// </summary>
+/// <returns>True if the building was created successfully.</returns>
 static bool Try_Place_POI(POIPlacementRequest const & Request, BuildingTypeClass * Type, HouseClass * Neutral,
 	Cell const & PlacementCell, std::vector<HouseClass *> const & ActiveHouses,
 	std::vector<POIPlacedLocation> const & PlacedPOIs)
@@ -3302,6 +3350,10 @@ static bool Try_Place_POI(POIPlacementRequest const & Request, BuildingTypeClass
 }
 
 
+/// <summary>
+/// Applies random offsets within the supplied parallel and lateral limits, clipping the result to the map.
+/// Returns the original cell if either waypoint is invalid or both waypoints coincide.
+/// </summary>
 static Cell POI_Apply_Directional_Jitter(Cell const & Candidate, int StartWaypoint, int OtherStartWaypoint,
 	int ParallelLimit, int LateralLimit)
 {
@@ -3332,6 +3384,9 @@ static Cell POI_Apply_Directional_Jitter(Cell const & Candidate, int StartWaypoi
 }
 
 
+/// <summary>
+/// Tries configured placements and then random cells, recording the first successful placement.
+/// </summary>
 static void Place_POI_Request(POIPlacementRequest const & Request, std::vector<HouseClass *> const & ActiveHouses,
 	HouseClass * Neutral, std::vector<POIPlacedLocation> & PlacedPOIs)
 {
@@ -3402,6 +3457,9 @@ static void Place_POI_Request(POIPlacementRequest const & Request, std::vector<H
 }
 
 
+/// <summary>
+/// Builds and places POI requests in skirmish and multiplayer sessions.
+/// </summary>
 static void Place_POIs(void)
 {
 	if (Session.Type != GAME_SKIRMISH && Session.Type != GAME_IPX && Session.Type != GAME_INTERNET) {
