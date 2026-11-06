@@ -182,7 +182,9 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
+#include <limits>
 #include <utility>
 #include <vector>
 
@@ -200,6 +202,7 @@ struct POIPlacementRequest {
 	std::vector<HouseClass *> RequestingHouses;
 };
 static std::vector<POIPlacementRequest> Build_POI_Placement_Requests(void);
+static void Place_POIs(void);
 static Cell const Clip_Scatter(Cell const & cell, int maxdist);
 static Cell const Clip_Move(Cell const & cell, FacingType facing, int dist);
 static void Multiplayer_Last_Minute_Fixups(bool official = true);
@@ -1726,6 +1729,7 @@ void Multiplayer_Last_Minute_Fixups(bool official)
 		int save_init = ScenarioInit;			// turn ScenarioInit off
 		ScenarioInit = 0;
 		Create_Units(official);
+		Place_POIs();
 		ScenarioInit = save_init;				// turn ScenarioInit back on
 	}
 	Session.Update_Progress(93);
@@ -2867,6 +2871,7 @@ static std::vector<HouseClass *> ActiveStartHouses(void)
 
 
 constexpr std::size_t POI_LOCATION_COUNT = static_cast<std::size_t>(POILocationType::Count);
+constexpr int POI_PLACEMENT_ATTEMPTS = 6;
 
 
 static bool AlreadyUsedOpponent(std::array<std::vector<int>, POI_LOCATION_COUNT> const & AssignedOpponents,
@@ -3005,8 +3010,352 @@ static std::vector<POIPlacementRequest> Build_POI_Placement_Requests(void)
 }
 
 
+static bool Is_POI_Cell_In_Map(Cell const & Cell)
+{
+	return Cell.X >= Map.MapRect.X && Cell.Y >= Map.MapRect.Y &&
+		Cell.X < Map.MapRect.X + Map.MapRect.Width && Cell.Y < Map.MapRect.Y + Map.MapRect.Height;
+}
+
+
+static std::int64_t POI_Cell_Distance_Squared(Cell const & First, Cell const & Second)
+{
+	std::int64_t DeltaX = First.X - Second.X;
+	std::int64_t DeltaY = First.Y - Second.Y;
+	return DeltaX * DeltaX + DeltaY * DeltaY;
+}
+
+
+static int POI_Interpolate_Cell(int Start, int End, int Numerator, int Denominator)
+{
+	std::int64_t Offset = static_cast<std::int64_t>(End - Start) * Numerator;
+	std::int64_t RoundedOffset = Offset < 0
+		? -((-Offset + Denominator / 2) / Denominator)
+		: (Offset + Denominator / 2) / Denominator;
+	return Start + static_cast<int>(RoundedOffset);
+}
+
+
+static Cell POI_Fractional_Cell(POIPlacementRequest const & Request)
+{
+	int Numerator = 0;
+	int Denominator = 1;
+	switch (Request.Location) {
+		case POILocationType::OneQuarter:
+			Numerator = 1;
+			Denominator = 4;
+			break;
+		case POILocationType::OneThird:
+			Numerator = 1;
+			Denominator = 3;
+			break;
+		case POILocationType::Halfway:
+			Numerator = 1;
+			Denominator = 2;
+			break;
+		case POILocationType::TwoThirds:
+			Numerator = 2;
+			Denominator = 3;
+			break;
+		case POILocationType::ThreeQuarters:
+			Numerator = 3;
+			Denominator = 4;
+			break;
+		default:
+			return CELL_NONE;
+	}
+
+	Cell Start = Scen->Get_Waypoint_Cell(Request.StartWaypoint);
+	Cell Other = Scen->Get_Waypoint_Cell(Request.OtherStartWaypoint);
+	return Cell(POI_Interpolate_Cell(Start.X, Other.X, Numerator, Denominator),
+		POI_Interpolate_Cell(Start.Y, Other.Y, Numerator, Denominator));
+}
+
+
+static std::vector<Cell> POI_Location_Candidates(POIPlacementRequest const & Request,
+	std::vector<HouseClass *> const & ActiveHouses)
+{
+	std::vector<Cell> Candidates;
+
+	if (IsShareableLocation(Request.Location)) {
+		Candidates.push_back(POI_Fractional_Cell(Request));
+		return Candidates;
+	}
+
+	Cell Start = CELL_NONE;
+	Cell Other = CELL_NONE;
+	if (Request.StartWaypoint >= 0 && Scen->Is_Valid_Waypoint(Request.StartWaypoint)) {
+		Start = Scen->Get_Waypoint_Cell(Request.StartWaypoint);
+	}
+	if (Request.OtherStartWaypoint >= 0 && Scen->Is_Valid_Waypoint(Request.OtherStartWaypoint)) {
+		Other = Scen->Get_Waypoint_Cell(Request.OtherStartWaypoint);
+	}
+
+	int MinX = Map.MapRect.X;
+	int MaxX = MinX + Map.MapRect.Width;
+	int MinY = Map.MapRect.Y;
+	int MaxY = MinY + Map.MapRect.Height;
+
+	switch (Request.Location) {
+		case POILocationType::Furthest: {
+			int DeltaX = Other.X - Start.X;
+			int DeltaY = Other.Y - Start.Y;
+			if (Request.OtherStartWaypoint < 0 || (DeltaX == 0 && DeltaY == 0)) {
+				break;
+			}
+
+			std::int64_t Tolerance = std::abs(DeltaX) + std::abs(DeltaY);
+			for (int Y = MinY; Y < MaxY; Y++) {
+				for (int X = MinX; X < MaxX; X++) {
+					std::int64_t OffsetX = 2LL * X - Start.X - Other.X;
+					std::int64_t OffsetY = 2LL * Y - Start.Y - Other.Y;
+					std::int64_t DistanceFromBisector = DeltaX * OffsetY + DeltaY * OffsetX;
+					if (std::abs(DistanceFromBisector) <= Tolerance) {
+						Candidates.push_back(Cell(X, Y));
+					}
+				}
+			}
+			break;
+		}
+
+		case POILocationType::RandomBand: {
+			if (Request.OtherStartWaypoint < 0) {
+				break;
+			}
+
+			constexpr std::int64_t BandScale = 1000000;
+			HouseTypeClass * Type = Request.RequestingHouses.empty() ? nullptr : Request.RequestingHouses[0]->Class;
+			if (Type == nullptr || !std::isfinite(Type->POILocRandomBandMin) ||
+				!std::isfinite(Type->POILocRandomBandMax)) {
+				break;
+			}
+			if (Type->POILocRandomBandMin < 0.0f || Type->POILocRandomBandMax < Type->POILocRandomBandMin ||
+				Type->POILocRandomBandMax > 1.0f) {
+				break;
+			}
+
+			std::int64_t MinBand = std::llround(static_cast<double>(Type->POILocRandomBandMin) * BandScale);
+			std::int64_t MaxBand = std::llround(static_cast<double>(Type->POILocRandomBandMax) * BandScale);
+
+			std::int64_t SpanSquared = POI_Cell_Distance_Squared(Start, Other);
+			std::int64_t ScaleSquared = BandScale * BandScale;
+			std::int64_t MinDistanceSquared = SpanSquared * MinBand * MinBand;
+			std::int64_t MaxDistanceSquared = SpanSquared * MaxBand * MaxBand;
+			for (int Y = MinY; Y < MaxY; Y++) {
+				for (int X = MinX; X < MaxX; X++) {
+					std::int64_t DistanceSquared = POI_Cell_Distance_Squared(Cell(X, Y), Start) * ScaleSquared;
+					if (DistanceSquared >= MinDistanceSquared && DistanceSquared <= MaxDistanceSquared) {
+						Candidates.push_back(Cell(X, Y));
+					}
+				}
+			}
+			break;
+		}
+
+		case POILocationType::RandomSafe: {
+			int SafeDistance = 0;
+			if (!Request.RequestingHouses.empty()) {
+				SafeDistance = std::max(0, Request.RequestingHouses[0]->Class->POISafeDistance);
+			}
+			std::int64_t SafeDistanceSquared = static_cast<std::int64_t>(SafeDistance) * SafeDistance;
+			for (int Y = MinY; Y < MaxY; Y++) {
+				for (int X = MinX; X < MaxX; X++) {
+					Cell Candidate(X, Y);
+					bool IsSafe = true;
+					for (HouseClass * House : ActiveHouses) {
+						Cell Spawn = Scen->Get_Waypoint_Cell(House->SpawnWaypoint);
+						if (POI_Cell_Distance_Squared(Candidate, Spawn) < SafeDistanceSquared) {
+							IsSafe = false;
+							break;
+						}
+					}
+					if (IsSafe) {
+						Candidates.push_back(Candidate);
+					}
+				}
+			}
+			break;
+		}
+
+		case POILocationType::OneQuarter:
+		case POILocationType::OneThird:
+		case POILocationType::Halfway:
+		case POILocationType::TwoThirds:
+		case POILocationType::ThreeQuarters:
+		case POILocationType::Random:
+		case POILocationType::Count:
+			break;
+	}
+
+	return Candidates;
+}
+
+
+static bool Is_POI_Reachable_From_House(HouseClass const * House, std::vector<Cell> const & Foundation)
+{
+	if (House == nullptr || House->SpawnWaypoint < 0 || !Scen->Is_Valid_Waypoint(House->SpawnWaypoint)) {
+		return false;
+	}
+
+	Cell Start = Scen->Get_Waypoint_Cell(House->SpawnWaypoint);
+	if (!Is_POI_Cell_In_Map(Start)) {
+		return false;
+	}
+
+	for (Cell const & FoundationCell : Foundation) {
+		for (int Facing = 0; Facing < 8; Facing++) {
+			Cell Adjacent = Adjacent_Cell(FoundationCell, static_cast<FacingType>(Facing));
+			if (!Is_POI_Cell_In_Map(Adjacent) ||
+				std::find(Foundation.begin(), Foundation.end(), Adjacent) != Foundation.end()) {
+				continue;
+			}
+
+			int Distance = Search.Test_Cell_Walk(Start, Adjacent, nullptr, Map[Start].IsUnderBridge,
+				Map[Adjacent].IsUnderBridge, MZONE_AMPHIBIOUS);
+			if (Distance != std::numeric_limits<int>::max()) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+
+static bool Try_Place_POI(POIPlacementRequest const & Request, BuildingTypeClass * Type, HouseClass * Neutral,
+	Cell const & PlacementCell)
+{
+	if (!Is_POI_Cell_In_Map(PlacementCell)) {
+		return false;
+	}
+
+	std::vector<Cell> Foundation;
+	Cell const * Occupy = Type->Occupy_List(true);
+	if (Occupy == nullptr) {
+		return false;
+	}
+
+	for (; *Occupy != REFRESH_EOL; Occupy++) {
+		Cell FoundationCell = PlacementCell + *Occupy;
+		if (!Is_POI_Cell_In_Map(FoundationCell) || Map[FoundationCell].Cell_Object() != nullptr ||
+			!Map[FoundationCell].Is_Clear_To_Build(Type->Speed, Type, Neutral)) {
+			return false;
+		}
+		Foundation.push_back(FoundationCell);
+	}
+	if (Foundation.empty() || !Type->Legal_Placement(PlacementCell, Neutral)) {
+		return false;
+	}
+
+	for (HouseClass * Requester : Request.RequestingHouses) {
+		if (!Is_POI_Reachable_From_House(Requester, Foundation)) {
+			return false;
+		}
+	}
+
+	BuildingClass * Building = new BuildingClass(Type, Neutral);
+	if (Building == nullptr) {
+		return false;
+	}
+	if (Building->Unlimbo(Coord(PlacementCell), DIR_N)) {
+		return true;
+	}
+
+	Building->Delete_Me();
+	return false;
+}
+
+
+static void Place_POI_Request(POIPlacementRequest const & Request, std::vector<HouseClass *> const & ActiveHouses,
+	HouseClass * Neutral)
+{
+	if (Request.Building < 0 || Request.Building >= BuildingTypes.Count()) {
+		DebugString("POI request has invalid building type %d\n", Request.Building);
+		return;
+	}
+
+	BuildingTypeClass * Type = BuildingTypes[Request.Building];
+	if (Type == nullptr) {
+		DebugString("POI request has a missing building type %d\n", Request.Building);
+		return;
+	}
+	std::vector<Cell> Candidates = POI_Location_Candidates(Request, ActiveHouses);
+	bool ApplyJitter = IsShareableLocation(Request.Location) || Request.Location == POILocationType::Furthest;
+	bool ReuseCandidate = IsShareableLocation(Request.Location);
+	int Jitter = 0;
+	bool HasRequester = false;
+	for (HouseClass * Requester : Request.RequestingHouses) {
+		if (!HasRequester) {
+			Jitter = std::max(0, Requester->Class->POILocJitter);
+			HasRequester = true;
+		} else {
+			Jitter = std::min(Jitter, std::max(0, Requester->Class->POILocJitter));
+		}
+	}
+	Jitter = std::min(Jitter, std::max(Map.MapRect.Width, Map.MapRect.Height));
+	for (int Attempt = 0; Attempt < POI_PLACEMENT_ATTEMPTS; Attempt++) {
+		Cell Candidate = CELL_NONE;
+		if (Request.Location == POILocationType::Random) {
+			Candidate = Map.Pick_Random_Location();
+		} else {
+			if (Candidates.empty()) {
+				break;
+			}
+			int CandidateIndex = Random_Pick(0, static_cast<int>(Candidates.size()) - 1);
+			Candidate = Candidates[CandidateIndex];
+			if (!ReuseCandidate) {
+				Candidates.erase(Candidates.begin() + CandidateIndex);
+			}
+		}
+
+		if (ApplyJitter) {
+			int Distance = Random_Pick(0, Jitter);
+			FacingType Direction = static_cast<FacingType>(Random_Pick(0, 7));
+			Candidate = Clip_Move(Candidate, Direction, Distance);
+		}
+
+		if (Try_Place_POI(Request, Type, Neutral, Candidate)) {
+			return;
+		}
+	}
+
+	DebugString("POI request for building type %d could not use its configured location; trying Random\n", Request.Building);
+	for (int Attempt = 0; Attempt < POI_PLACEMENT_ATTEMPTS; Attempt++) {
+		Cell Candidate = Map.Pick_Random_Location();
+		if (Try_Place_POI(Request, Type, Neutral, Candidate)) {
+			return;
+		}
+	}
+
+	DebugString("POI request for building type %d was skipped after placement attempts failed\n", Request.Building);
+}
+
+
+static void Place_POIs(void)
+{
+	if (Session.Type != GAME_SKIRMISH && Session.Type != GAME_IPX && Session.Type != GAME_INTERNET) {
+		return;
+	}
+
+	std::vector<POIPlacementRequest> Requests = Build_POI_Placement_Requests();
+	if (Requests.empty()) {
+		return;
+	}
+
+	HouseClass * Neutral = House_From_HousesType(HOUSE_NEUTRAL);
+	if (Neutral == nullptr) {
+		DebugString("Cannot place POIs because the Neutral house is unavailable\n");
+		return;
+	}
+
+	std::vector<HouseClass *> ActiveHouses = ActiveStartHouses();
+	for (POIPlacementRequest const & Request : Requests) {
+		Place_POI_Request(Request, ActiveHouses, Neutral);
+	}
+}
+
+
 /***********************************************************************************************
- * Create_Units -- Creates infantry & units, for non-base multiplayer                          *
+ * Create_Units -- Creates infantry & units, for non-base multiplayer                         *
  *                                                                                             *
  * This routine uses data tables to determine which units to create for either                 *
  * a GDI or NOD house, and how many of each.                                                   *
