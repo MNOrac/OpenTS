@@ -55,6 +55,7 @@
 #include "tracker.h"
 #include "vector.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -277,11 +278,11 @@ bool HouseTypeClass::Read_INI(CCINIClass const & ini)
 			char trailing;
 			if (std::sscanf(POIRandomBands.c_str(), " %f , %f %c", &MinDistance, &MaxDistance, &trailing) == 2 &&
 				std::isfinite(MinDistance) && std::isfinite(MaxDistance) &&
-				MinDistance >= 0.0f && MinDistance <= MaxDistance) {
-				POILocRandomBandMin = MinDistance;
-				POILocRandomBandMax = MaxDistance;
+				MinDistance <= MaxDistance) {
+				POILocRandomBandMin = std::clamp(MinDistance, 0.0f, 1.0f);
+				POILocRandomBandMax = std::clamp(MaxDistance, 0.0f, 1.0f);
 			} else {
-				DebugString("[%s] POILocRandomBands must be two nonnegative percentages in ascending order\n", Name());
+				DebugString("[%s] POILocRandomBands must be two floats between 0 and 1 in ascending order\n", Name());
 			}
 		}
 		POISafeDistance = ini.Get_Int(Name(), "POISafeDistance", POISafeDistance);
