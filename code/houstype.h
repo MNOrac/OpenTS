@@ -112,17 +112,72 @@ class HouseTypeClass : public AbstractTypeClass
 		/// Unused
 		bool IsSmartAI;
 
+
+		/*
+		 * POI Controls. A POI is a structure preconfigured in a House entry to be placed on
+		 * the map at calculated, partially random points.
+		 */
 		TypeList<int> POIs;
+
+		/*
+		 * The minimum number of POIs that can be placed if a house that requires them is
+		 * present in the game.
+		 */
 		int POIsBaseCount;
+
+		/*
+		 * The number of additional POIs to add per additional other player after the first.
+		 */
 		int POIsPerOpponent;
+
+		/*
+		 * The maximum number of POIs belonging to all instances of this house that are
+		 * allowed to exist in the game. This prevents the number from getting out of hand
+		 * if all eight players are the same house.
+		 */
 		int POIsMax;
+
+		/*
+		 * The POILocationType enum establishes the valid placement rules for a POI. Each
+		 * POI in POIs uses the placement rule in the index it shares with the POILocations
+		 * list. If either list is a different length, it will loop to make sure all POIs
+		 * have a location rule and all location rules have a POI. If the POI count is higher
+		 * than either, the lists will also loop to cover the shortfall.
+		 */
 		TypeList<POILocationType> POILocations;
+
+		/*
+		 * Controls for the RandomBand location rule. This rule picks a valid placement cell
+		 * in a random band between these two values, which represent a minimum  and a maximum
+		 * distance from the house's starting location.
+		 */
 		float POILocRandomBandMin;
 		float POILocRandomBandMax;
+
+		/*
+		 * POISafeDistance prevents a POI from being placed within this distance of an occupied
+		 * player start or another POI.
+		 */
 		int POISafeDistance;
+
+		/*
+		 * The jitter rules allow a random shift to be added to the placement of POIs that
+		 * use a point-to-point placement rule. POIs whose rule places them along an axis
+		 * between two player starts can use POILocJitterParallel to randomly shift placement
+		 * along the axis by this number of cells. POILocJitterLateral adds jitter perpendicular
+		 * to the axis.
+		 */
 		int POILocJitterParallel;
 		int POILocJitterLateral;
+
+		/*
+		 * POIDoubleUpWithEnemies controls whether other players' POI rules can be batched
+		 * together with this house. If they are, two opposing players' POIs at Halfway will be
+		 * consolidated into one single POI. The same goes for one player's OneThird and an
+		 * opposite player's TwoThirds, for instance.
+		 */
 		bool POIDoubleUpWithEnemies;
+
 
 		//------------------------------------------------------------------------
 		HouseTypeClass(char const * ininame = NULL);
