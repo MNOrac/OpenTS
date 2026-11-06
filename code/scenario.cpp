@@ -201,6 +201,10 @@ struct POIPlacementRequest {
 	int OtherStartWaypoint; // -1 when the location does not use another start.
 	std::vector<HouseClass *> RequestingHouses;
 };
+struct POIPlacedLocation {
+	Cell Location;
+	std::vector<HouseClass *> RequestingHouses;
+};
 static std::vector<POIPlacementRequest> Build_POI_Placement_Requests(void);
 static void Place_POIs(void);
 static Cell const Clip_Scatter(Cell const & cell, int maxdist);
@@ -3025,6 +3029,38 @@ static std::int64_t POI_Cell_Distance_Squared(Cell const & First, Cell const & S
 }
 
 
+static bool Is_POI_Location_Safe(POIPlacementRequest const & Request, Cell const & Candidate,
+	std::vector<HouseClass *> const & ActiveHouses, std::vector<POIPlacedLocation> const & PlacedPOIs)
+{
+	for (HouseClass * Requester : Request.RequestingHouses) {
+		std::int64_t SafeDistance = std::max(0, Requester->Class->POISafeDistance);
+		std::int64_t SafeDistanceSquared = SafeDistance * SafeDistance;
+		for (HouseClass * House : ActiveHouses) {
+			Cell Spawn = Scen->Get_Waypoint_Cell(House->SpawnWaypoint);
+			if (POI_Cell_Distance_Squared(Candidate, Spawn) < SafeDistanceSquared) {
+				return false;
+			}
+		}
+
+		for (POIPlacedLocation const & Placed : PlacedPOIs) {
+			if (POI_Cell_Distance_Squared(Candidate, Placed.Location) < SafeDistanceSquared) {
+				return false;
+			}
+			for (HouseClass * PreviousRequester : Placed.RequestingHouses) {
+				std::int64_t PreviousSafeDistance =
+					std::max(0, PreviousRequester->Class->POISafeDistance);
+				if (POI_Cell_Distance_Squared(Candidate, Placed.Location) <
+					PreviousSafeDistance * PreviousSafeDistance) {
+					return false;
+				}
+			}
+		}
+	}
+
+	return true;
+}
+
+
 static int POI_Interpolate_Cell(int Start, int End, int Numerator, int Denominator)
 {
 	std::int64_t Offset = static_cast<std::int64_t>(End - Start) * Numerator;
@@ -3072,7 +3108,7 @@ static Cell POI_Fractional_Cell(POIPlacementRequest const & Request)
 
 
 static std::vector<Cell> POI_Location_Candidates(POIPlacementRequest const & Request,
-	std::vector<HouseClass *> const & ActiveHouses)
+	std::vector<HouseClass *> const & ActiveHouses, std::vector<POIPlacedLocation> const & PlacedPOIs)
 {
 	std::vector<Cell> Candidates;
 
@@ -3152,23 +3188,10 @@ static std::vector<Cell> POI_Location_Candidates(POIPlacementRequest const & Req
 		}
 
 		case POILocationType::RandomSafe: {
-			int SafeDistance = 0;
-			if (!Request.RequestingHouses.empty()) {
-				SafeDistance = std::max(0, Request.RequestingHouses[0]->Class->POISafeDistance);
-			}
-			std::int64_t SafeDistanceSquared = static_cast<std::int64_t>(SafeDistance) * SafeDistance;
 			for (int Y = MinY; Y < MaxY; Y++) {
 				for (int X = MinX; X < MaxX; X++) {
 					Cell Candidate(X, Y);
-					bool IsSafe = true;
-					for (HouseClass * House : ActiveHouses) {
-						Cell Spawn = Scen->Get_Waypoint_Cell(House->SpawnWaypoint);
-						if (POI_Cell_Distance_Squared(Candidate, Spawn) < SafeDistanceSquared) {
-							IsSafe = false;
-							break;
-						}
-					}
-					if (IsSafe) {
+					if (Is_POI_Location_Safe(Request, Candidate, ActiveHouses, PlacedPOIs)) {
 						Candidates.push_back(Candidate);
 					}
 				}
@@ -3222,9 +3245,11 @@ static bool Is_POI_Reachable_From_House(HouseClass const * House, std::vector<Ce
 
 
 static bool Is_POI_Placement_Valid(POIPlacementRequest const & Request, BuildingTypeClass * Type,
-	HouseClass * Neutral, Cell const & PlacementCell)
+	HouseClass * Neutral, Cell const & PlacementCell, std::vector<HouseClass *> const & ActiveHouses,
+	std::vector<POIPlacedLocation> const & PlacedPOIs)
 {
-	if (!Is_POI_Cell_In_Map(PlacementCell)) {
+	if (!Is_POI_Cell_In_Map(PlacementCell) ||
+		!Is_POI_Location_Safe(Request, PlacementCell, ActiveHouses, PlacedPOIs)) {
 		return false;
 	}
 
@@ -3257,9 +3282,10 @@ static bool Is_POI_Placement_Valid(POIPlacementRequest const & Request, Building
 
 
 static bool Try_Place_POI(POIPlacementRequest const & Request, BuildingTypeClass * Type, HouseClass * Neutral,
-	Cell const & PlacementCell)
+	Cell const & PlacementCell, std::vector<HouseClass *> const & ActiveHouses,
+	std::vector<POIPlacedLocation> const & PlacedPOIs)
 {
-	if (!Is_POI_Placement_Valid(Request, Type, Neutral, PlacementCell)) {
+	if (!Is_POI_Placement_Valid(Request, Type, Neutral, PlacementCell, ActiveHouses, PlacedPOIs)) {
 		return false;
 	}
 
@@ -3276,8 +3302,38 @@ static bool Try_Place_POI(POIPlacementRequest const & Request, BuildingTypeClass
 }
 
 
+static Cell POI_Apply_Directional_Jitter(Cell const & Candidate, int StartWaypoint, int OtherStartWaypoint,
+	int ParallelLimit, int LateralLimit)
+{
+	if (StartWaypoint < 0 || OtherStartWaypoint < 0 || !Scen->Is_Valid_Waypoint(StartWaypoint) ||
+		!Scen->Is_Valid_Waypoint(OtherStartWaypoint)) {
+		return Candidate;
+	}
+
+	Cell Start = Scen->Get_Waypoint_Cell(StartWaypoint);
+	Cell Other = Scen->Get_Waypoint_Cell(OtherStartWaypoint);
+	double DeltaX = Other.X - Start.X;
+	double DeltaY = Other.Y - Start.Y;
+	double Length = std::hypot(DeltaX, DeltaY);
+	if (Length == 0.0) {
+		return Candidate;
+	}
+
+	int Parallel = Random_Pick(-ParallelLimit, ParallelLimit);
+	int Lateral = Random_Pick(-LateralLimit, LateralLimit);
+	int OffsetX = static_cast<int>(std::lround((Parallel * DeltaX - Lateral * DeltaY) / Length));
+	int OffsetY = static_cast<int>(std::lround((Parallel * DeltaY + Lateral * DeltaX) / Length));
+	int MinX = Map.MapRect.X;
+	int MaxX = MinX + Map.MapRect.Width - 1;
+	int MinY = Map.MapRect.Y;
+	int MaxY = MinY + Map.MapRect.Height - 1;
+	return Cell(std::clamp(Candidate.X + OffsetX, MinX, MaxX),
+		std::clamp(Candidate.Y + OffsetY, MinY, MaxY));
+}
+
+
 static void Place_POI_Request(POIPlacementRequest const & Request, std::vector<HouseClass *> const & ActiveHouses,
-	HouseClass * Neutral)
+	HouseClass * Neutral, std::vector<POIPlacedLocation> & PlacedPOIs)
 {
 	if (Request.Building < 0 || Request.Building >= BuildingTypes.Count()) {
 		DebugString("POI request has invalid building type %d\n", Request.Building);
@@ -3289,26 +3345,24 @@ static void Place_POI_Request(POIPlacementRequest const & Request, std::vector<H
 		DebugString("POI request has a missing building type %d\n", Request.Building);
 		return;
 	}
-	std::vector<Cell> Candidates = POI_Location_Candidates(Request, ActiveHouses);
-	bool ApplyJitter = IsShareableLocation(Request.Location) || Request.Location == POILocationType::Furthest;
+	std::vector<Cell> Candidates = POI_Location_Candidates(Request, ActiveHouses, PlacedPOIs);
+	bool ApplyJitter = NeedsOpponentStart(Request.Location);
 	bool ReuseCandidate = IsShareableLocation(Request.Location);
 	if (Request.Location == POILocationType::Furthest) {
 		Candidates.erase(std::remove_if(Candidates.begin(), Candidates.end(), [&](Cell const & Candidate) {
-			return !Is_POI_Placement_Valid(Request, Type, Neutral, Candidate);
+			return !Is_POI_Placement_Valid(Request, Type, Neutral, Candidate, ActiveHouses, PlacedPOIs);
 		}), Candidates.end());
 	}
 
-	int Jitter = 0;
-	bool HasRequester = false;
+	int ParallelJitter = 0;
+	int LateralJitter = 0;
 	for (HouseClass * Requester : Request.RequestingHouses) {
-		if (!HasRequester) {
-			Jitter = std::max(0, Requester->Class->POILocJitter);
-			HasRequester = true;
-		} else {
-			Jitter = std::min(Jitter, std::max(0, Requester->Class->POILocJitter));
-		}
+		ParallelJitter = std::max(ParallelJitter, std::max(0, Requester->Class->POILocJitterParallel));
+		LateralJitter = std::max(LateralJitter, std::max(0, Requester->Class->POILocJitterLateral));
 	}
-	Jitter = std::min(Jitter, std::max(Map.MapRect.Width, Map.MapRect.Height));
+	int MaxJitter = std::max(Map.MapRect.Width, Map.MapRect.Height);
+	ParallelJitter = std::min(ParallelJitter, MaxJitter);
+	LateralJitter = std::min(LateralJitter, MaxJitter);
 	for (int Attempt = 0; Attempt < POI_PLACEMENT_ATTEMPTS; Attempt++) {
 		Cell Candidate = CELL_NONE;
 		if (Request.Location == POILocationType::Random) {
@@ -3325,12 +3379,12 @@ static void Place_POI_Request(POIPlacementRequest const & Request, std::vector<H
 		}
 
 		if (ApplyJitter) {
-			int Distance = Random_Pick(0, Jitter);
-			FacingType Direction = static_cast<FacingType>(Random_Pick(0, 7));
-			Candidate = Clip_Move(Candidate, Direction, Distance);
+			Candidate = POI_Apply_Directional_Jitter(Candidate, Request.StartWaypoint, Request.OtherStartWaypoint,
+				ParallelJitter, LateralJitter);
 		}
 
-		if (Try_Place_POI(Request, Type, Neutral, Candidate)) {
+		if (Try_Place_POI(Request, Type, Neutral, Candidate, ActiveHouses, PlacedPOIs)) {
+			PlacedPOIs.push_back(POIPlacedLocation{Candidate, Request.RequestingHouses});
 			return;
 		}
 	}
@@ -3338,7 +3392,8 @@ static void Place_POI_Request(POIPlacementRequest const & Request, std::vector<H
 	DebugString("POI request for building type %d could not use its configured location; trying Random\n", Request.Building);
 	for (int Attempt = 0; Attempt < POI_PLACEMENT_ATTEMPTS; Attempt++) {
 		Cell Candidate = Map.Pick_Random_Location();
-		if (Try_Place_POI(Request, Type, Neutral, Candidate)) {
+		if (Try_Place_POI(Request, Type, Neutral, Candidate, ActiveHouses, PlacedPOIs)) {
+			PlacedPOIs.push_back(POIPlacedLocation{Candidate, Request.RequestingHouses});
 			return;
 		}
 	}
@@ -3365,8 +3420,9 @@ static void Place_POIs(void)
 	}
 
 	std::vector<HouseClass *> ActiveHouses = ActiveStartHouses();
+	std::vector<POIPlacedLocation> PlacedPOIs;
 	for (POIPlacementRequest const & Request : Requests) {
-		Place_POI_Request(Request, ActiveHouses, Neutral);
+		Place_POI_Request(Request, ActiveHouses, Neutral, PlacedPOIs);
 	}
 }
 

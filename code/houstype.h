@@ -120,7 +120,8 @@ class HouseTypeClass : public AbstractTypeClass
 		float POILocRandomBandMin;
 		float POILocRandomBandMax;
 		int POISafeDistance;
-		int POILocJitter;
+		int POILocJitterParallel;
+		int POILocJitterLateral;
 		bool POIDoubleUpWithEnemies;
 
 		//------------------------------------------------------------------------

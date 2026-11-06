@@ -163,7 +163,8 @@ HouseTypeClass::HouseTypeClass(char const * ininame) :
 	POILocRandomBandMin(0.0f),
 	POILocRandomBandMax(1.0f),
 	POISafeDistance(0),
-	POILocJitter(0),
+	POILocJitterParallel(0),
+	POILocJitterLateral(0),
 	POIDoubleUpWithEnemies(false)
 {
 	Create_ID();
@@ -286,7 +287,8 @@ bool HouseTypeClass::Read_INI(CCINIClass const & ini)
 			}
 		}
 		POISafeDistance = ini.Get_Int(Name(), "POISafeDistance", POISafeDistance);
-		POILocJitter = ini.Get_Int(Name(), "POILocJitter", POILocJitter);
+		POILocJitterParallel = ini.Get_Int(Name(), "POILocJitterParallel", POILocJitterParallel);
+		POILocJitterLateral = ini.Get_Int(Name(), "POILocJitterLateral", POILocJitterLateral);
 		POIDoubleUpWithEnemies = ini.Get_Bool(Name(), "POIDoubleUpWithEnemies", POIDoubleUpWithEnemies);
 
 		SideType oldside = Side;
@@ -344,7 +346,8 @@ void HouseTypeClass::Compute_CRC(CRCEngine & crc) const
 	crc(POILocRandomBandMin);
 	crc(POILocRandomBandMax);
 	crc(POISafeDistance);
-	crc(POILocJitter);
+	crc(POILocJitterParallel);
+	crc(POILocJitterLateral);
 	crc(POIDoubleUpWithEnemies);
 }
 
