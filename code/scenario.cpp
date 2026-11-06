@@ -3108,7 +3108,7 @@ static std::vector<Cell> POI_Location_Candidates(POIPlacementRequest const & Req
 				for (int X = MinX; X < MaxX; X++) {
 					std::int64_t OffsetX = 2LL * X - Start.X - Other.X;
 					std::int64_t OffsetY = 2LL * Y - Start.Y - Other.Y;
-					std::int64_t DistanceFromBisector = DeltaX * OffsetY + DeltaY * OffsetX;
+					std::int64_t DistanceFromBisector = DeltaX * OffsetX + DeltaY * OffsetY;
 					if (std::abs(DistanceFromBisector) <= Tolerance) {
 						Candidates.push_back(Cell(X, Y));
 					}
@@ -3221,8 +3221,8 @@ static bool Is_POI_Reachable_From_House(HouseClass const * House, std::vector<Ce
 }
 
 
-static bool Try_Place_POI(POIPlacementRequest const & Request, BuildingTypeClass * Type, HouseClass * Neutral,
-	Cell const & PlacementCell)
+static bool Is_POI_Placement_Valid(POIPlacementRequest const & Request, BuildingTypeClass * Type,
+	HouseClass * Neutral, Cell const & PlacementCell)
 {
 	if (!Is_POI_Cell_In_Map(PlacementCell)) {
 		return false;
@@ -3250,6 +3250,17 @@ static bool Try_Place_POI(POIPlacementRequest const & Request, BuildingTypeClass
 		if (!Is_POI_Reachable_From_House(Requester, Foundation)) {
 			return false;
 		}
+	}
+
+	return true;
+}
+
+
+static bool Try_Place_POI(POIPlacementRequest const & Request, BuildingTypeClass * Type, HouseClass * Neutral,
+	Cell const & PlacementCell)
+{
+	if (!Is_POI_Placement_Valid(Request, Type, Neutral, PlacementCell)) {
+		return false;
 	}
 
 	BuildingClass * Building = new BuildingClass(Type, Neutral);
@@ -3281,6 +3292,12 @@ static void Place_POI_Request(POIPlacementRequest const & Request, std::vector<H
 	std::vector<Cell> Candidates = POI_Location_Candidates(Request, ActiveHouses);
 	bool ApplyJitter = IsShareableLocation(Request.Location) || Request.Location == POILocationType::Furthest;
 	bool ReuseCandidate = IsShareableLocation(Request.Location);
+	if (Request.Location == POILocationType::Furthest) {
+		Candidates.erase(std::remove_if(Candidates.begin(), Candidates.end(), [&](Cell const & Candidate) {
+			return !Is_POI_Placement_Valid(Request, Type, Neutral, Candidate);
+		}), Candidates.end());
+	}
+
 	int Jitter = 0;
 	bool HasRequester = false;
 	for (HouseClass * Requester : Request.RequestingHouses) {
