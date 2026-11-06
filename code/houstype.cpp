@@ -266,20 +266,20 @@ bool HouseTypeClass::Read_INI(CCINIClass const & ini)
 		POIsBaseCount = ini.Get_Int(Name(), "POIsBaseCount", POIsBaseCount);
 		POIsPerOpponent = ini.Get_Int(Name(), "POIsPerOpponent", POIsPerOpponent);
 		POIsMax = ini.Get_Int(Name(), "POIsMax", POIsMax);
-		std::string poi_locations = ini.Get_String(Name(), "POILocations");
-		if (!poi_locations.empty()) {
-			POILocations = Parse_POI_Locations(Name(), poi_locations);
+		std::string POILocations = ini.Get_String(Name(), "POILocations");
+		if (!POILocations.empty()) {
+			this->POILocations = Parse_POI_Locations(Name(), POILocations);
 		}
-		std::string poi_random_bands = ini.Get_String(Name(), "POILocRandomBands");
-		if (!poi_random_bands.empty()) {
-			float min_distance;
-			float max_distance;
+		std::string POIRandomBands = ini.Get_String(Name(), "POILocRandomBands");
+		if (!POIRandomBands.empty()) {
+			float MinDistance;
+			float MaxDistance;
 			char trailing;
-			if (std::sscanf(poi_random_bands.c_str(), " %f , %f %c", &min_distance, &max_distance, &trailing) == 2 &&
-				std::isfinite(min_distance) && std::isfinite(max_distance) &&
-				min_distance >= 0.0f && min_distance <= max_distance) {
-				POILocRandomBandMin = min_distance;
-				POILocRandomBandMax = max_distance;
+			if (std::sscanf(POIRandomBands.c_str(), " %f , %f %c", &MinDistance, &MaxDistance, &trailing) == 2 &&
+				std::isfinite(MinDistance) && std::isfinite(MaxDistance) &&
+				MinDistance >= 0.0f && MinDistance <= MaxDistance) {
+				POILocRandomBandMin = MinDistance;
+				POILocRandomBandMax = MaxDistance;
 			} else {
 				DebugString("[%s] POILocRandomBands must be two nonnegative percentages in ascending order\n", Name());
 			}

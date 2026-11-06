@@ -181,6 +181,8 @@
 #include "bench.hh"
 
 #include <algorithm>
+#include <array>
+#include <cstdint>
 #include <utility>
 #include <vector>
 
@@ -190,6 +192,14 @@ CDTimerClass<SystemTimerClass> ScenUnusedTimer;
 static void Assign_Start_Positions(bool official);
 static void Read_Spawn_Houses(CCINIClass const & ini);
 static void Create_Units(bool official);
+struct POIPlacementRequest {
+	int Building;
+	POILocationType Location;
+	int StartWaypoint; // Shareable fractional locations use the lower numbered start as their anchor.
+	int OtherStartWaypoint; // -1 when the location does not use another start.
+	std::vector<HouseClass *> RequestingHouses;
+};
+static std::vector<POIPlacementRequest> Build_POI_Placement_Requests(void);
 static Cell const Clip_Scatter(Cell const & cell, int maxdist);
 static Cell const Clip_Move(Cell const & cell, FacingType facing, int dist);
 static void Multiplayer_Last_Minute_Fixups(bool official = true);
@@ -2783,6 +2793,215 @@ static void Assign_Start_Positions(bool official)
 		held[best] = true;
 		DebugString("House %s starts at waypoint %d\n", (char const *)housep->IniName, best);
 	}
+}
+
+
+static bool NeedsOpponentStart(POILocationType Location)
+{
+	switch (Location) {
+		case POILocationType::OneQuarter:
+		case POILocationType::OneThird:
+		case POILocationType::Halfway:
+		case POILocationType::TwoThirds:
+		case POILocationType::ThreeQuarters:
+		case POILocationType::Furthest:
+		case POILocationType::RandomBand:
+			return true;
+
+		case POILocationType::RandomSafe:
+		case POILocationType::Random:
+		case POILocationType::Count:
+			return false;
+	}
+	return false;
+}
+
+
+static bool IsShareableLocation(POILocationType Location)
+{
+	return Location == POILocationType::OneQuarter ||
+		Location == POILocationType::OneThird ||
+		Location == POILocationType::Halfway ||
+		Location == POILocationType::TwoThirds ||
+		Location == POILocationType::ThreeQuarters;
+}
+
+
+static POILocationType ReverseLocation(POILocationType Location)
+{
+	switch (Location) {
+		case POILocationType::OneQuarter:
+			return POILocationType::ThreeQuarters;
+		case POILocationType::OneThird:
+			return POILocationType::TwoThirds;
+		case POILocationType::Halfway:
+			return POILocationType::Halfway;
+		case POILocationType::TwoThirds:
+			return POILocationType::OneThird;
+		case POILocationType::ThreeQuarters:
+			return POILocationType::OneQuarter;
+		default:
+			return Location;
+	}
+}
+
+
+static std::vector<HouseClass *> ActiveStartHouses(void)
+{
+	std::vector<HouseClass *> ActiveHouses;
+	for (int Index = 0; Index < Houses.Count(); Index++) {
+		HouseClass * House = Houses[Index];
+		if (House->Class == nullptr || House->IsObserver || House->IsDefeated || House->Class->IsMultiplayPassive ||
+			House->SpawnWaypoint < 0 || !Scen->Is_Valid_Waypoint(House->SpawnWaypoint) ||
+			House_At(House->SpawnWaypoint) != House) {
+			continue;
+		}
+		ActiveHouses.push_back(House);
+	}
+
+	std::sort(ActiveHouses.begin(), ActiveHouses.end(), [](HouseClass const * Left, HouseClass const * Right) {
+		return Left->SpawnWaypoint < Right->SpawnWaypoint;
+	});
+	return ActiveHouses;
+}
+
+
+constexpr std::size_t POI_LOCATION_COUNT = static_cast<std::size_t>(POILocationType::Count);
+
+
+static bool AlreadyUsedOpponent(std::array<std::vector<int>, POI_LOCATION_COUNT> const & AssignedOpponents,
+	POILocationType Location, int Waypoint)
+{
+	std::vector<int> const & Used = AssignedOpponents[static_cast<std::size_t>(Location)];
+	return std::find(Used.begin(), Used.end(), Waypoint) != Used.end();
+}
+
+
+static bool IsReciprocalRequest(POIPlacementRequest const & Existing, int Building, POILocationType Location,
+	int StartWaypoint, int OtherWaypoint)
+{
+	int CanonicalStart = std::min(StartWaypoint, OtherWaypoint);
+	int CanonicalOther = std::max(StartWaypoint, OtherWaypoint);
+	if (Existing.Building != Building || !IsShareableLocation(Existing.Location) ||
+		Existing.StartWaypoint != CanonicalStart || Existing.OtherStartWaypoint != CanonicalOther) {
+		return false;
+	}
+
+	POILocationType Normalized = Location;
+	if (StartWaypoint > OtherWaypoint) {
+		Normalized = ReverseLocation(Location);
+	}
+	return Existing.Location == Normalized;
+}
+
+
+/// <summary>
+/// Builds the requested POI placements from active houses' rules without choosing cells or
+/// creating buildings. Reciprocal fractional requests are merged when either requesting house
+/// enables POIDoubleUpWithEnemies.
+/// </summary>
+/// <returns>Returns requests in house-type, start-waypoint, and rule-list order.</returns>
+static std::vector<POIPlacementRequest> Build_POI_Placement_Requests(void)
+{
+	std::vector<POIPlacementRequest> Requests;
+	std::vector<HouseClass *> ActiveHouses = ActiveStartHouses();
+	if (ActiveHouses.empty()) {
+		return Requests;
+	}
+
+	for (int TypeIndex = 0; TypeIndex < HouseTypes.Count(); TypeIndex++) {
+		HouseTypeClass * Type = HouseTypes[TypeIndex];
+		if (Type->POIs.Count() == 0 || Type->POILocations.Count() == 0) {
+			continue;
+		}
+
+		std::vector<HouseClass *> Instances;
+		for (HouseClass * House : ActiveHouses) {
+			if (House->Class == Type) {
+				Instances.push_back(House);
+			}
+		}
+		if (Instances.empty()) {
+			continue;
+		}
+
+		std::int64_t PerInstance = static_cast<std::int64_t>(Type->POIsBaseCount) +
+			static_cast<std::int64_t>(Type->POIsPerOpponent) * std::max(0, static_cast<int>(ActiveHouses.size()) - 2);
+		PerInstance = std::max<std::int64_t>(0, PerInstance);
+
+		std::int64_t Total = PerInstance * static_cast<std::int64_t>(Instances.size());
+		if (Type->POIsMax >= 0) {
+			Total = std::min<std::int64_t>(Total, Type->POIsMax);
+		}
+
+		std::int64_t PerHouse = Total / static_cast<std::int64_t>(Instances.size());
+		std::int64_t Remainder = Total % static_cast<std::int64_t>(Instances.size());
+
+		for (std::size_t InstanceIndex = 0; InstanceIndex < Instances.size(); InstanceIndex++) {
+			HouseClass * House = Instances[InstanceIndex];
+			std::int64_t Count = PerHouse + (InstanceIndex < static_cast<std::size_t>(Remainder) ? 1 : 0);
+			std::array<std::vector<int>, POI_LOCATION_COUNT> AssignedOpponents;
+
+			for (std::int64_t POIIndex = 0; POIIndex < Count; POIIndex++) {
+				int Building = Type->POIs[static_cast<int>(POIIndex % Type->POIs.Count())];
+				POILocationType Location = Type->POILocations[static_cast<int>(POIIndex % Type->POILocations.Count())];
+				int OtherWaypoint = -1;
+
+				if (NeedsOpponentStart(Location)) {
+					for (HouseClass * Opponent : ActiveHouses) {
+						if (Opponent == House || AlreadyUsedOpponent(AssignedOpponents, Location, Opponent->SpawnWaypoint)) {
+							continue;
+						}
+						OtherWaypoint = Opponent->SpawnWaypoint;
+						AssignedOpponents[static_cast<std::size_t>(Location)].push_back(OtherWaypoint);
+						break;
+					}
+
+					if (OtherWaypoint < 0) {
+						continue;
+					}
+				}
+
+				int const RequestedStartWaypoint = House->SpawnWaypoint;
+				int const RequestedOtherWaypoint = OtherWaypoint;
+				int StartWaypoint = RequestedStartWaypoint;
+				POILocationType PlacementLocation = Location;
+				if (IsShareableLocation(Location) && StartWaypoint > OtherWaypoint) {
+					std::swap(StartWaypoint, OtherWaypoint);
+					PlacementLocation = ReverseLocation(Location);
+				}
+
+				bool Merged = false;
+				if (IsShareableLocation(Location)) {
+					for (POIPlacementRequest & Existing : Requests) {
+						bool SharingEnabled = Type->POIDoubleUpWithEnemies;
+						for (HouseClass * Requester : Existing.RequestingHouses) {
+							SharingEnabled = SharingEnabled || Requester->Class->POIDoubleUpWithEnemies;
+						}
+						if (SharingEnabled &&
+							IsReciprocalRequest(Existing, Building, Location, RequestedStartWaypoint, RequestedOtherWaypoint)) {
+							Existing.RequestingHouses.push_back(House);
+							Merged = true;
+							break;
+						}
+					}
+				}
+				if (Merged) {
+					continue;
+				}
+
+				POIPlacementRequest Request;
+				Request.Building = Building;
+				Request.Location = PlacementLocation;
+				Request.StartWaypoint = StartWaypoint;
+				Request.OtherStartWaypoint = OtherWaypoint;
+				Request.RequestingHouses.push_back(House);
+				Requests.push_back(std::move(Request));
+			}
+		}
+	}
+
+	return Requests;
 }
 
 

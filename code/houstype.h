@@ -16,9 +16,21 @@
 #include "abstype.h"
 
 #include "house.hh"
-#include "poilocation.hh"
 #include "side.hh"
 #include "typelist.h"
+
+enum class POILocationType {
+	OneQuarter,
+	OneThird,
+	Halfway,
+	TwoThirds,
+	ThreeQuarters,
+	Furthest,
+	RandomBand,
+	RandomSafe,
+	Random,
+	Count,
+};
 
 /**********************************************************************
 **	Each house has certain unalienable characteristics. This structure
