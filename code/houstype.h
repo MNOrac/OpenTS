@@ -16,7 +16,9 @@
 #include "abstype.h"
 
 #include "house.hh"
+#include "poilocation.hh"
 #include "side.hh"
+#include "typelist.h"
 
 /**********************************************************************
 **	Each house has certain unalienable characteristics. This structure
@@ -97,6 +99,17 @@ class HouseTypeClass : public AbstractTypeClass
 
 		/// Unused
 		bool IsSmartAI;
+
+		TypeList<int> POIs;
+		int POIsBaseCount;
+		int POIsPerOpponent;
+		int POIsMax;
+		TypeList<POILocationType> POILocations;
+		float POILocRandomBandMin;
+		float POILocRandomBandMax;
+		int POISafeDistance;
+		int POILocJitter;
+		bool POIDoubleUpWithEnemies;
 
 		//------------------------------------------------------------------------
 		HouseTypeClass(char const * ininame = NULL);

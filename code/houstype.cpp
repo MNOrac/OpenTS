@@ -55,6 +55,72 @@
 #include "tracker.h"
 #include "vector.h"
 
+#include <cmath>
+#include <cstdio>
+#include <string>
+
+
+namespace {
+
+bool Parse_POI_Location(char const * name, POILocationType & location)
+{
+	static struct {
+		char const * Name;
+		POILocationType Location;
+	} const locations[] = {
+		{"OneQuarter", POILocationType::OneQuarter},
+		{"OneThird", POILocationType::OneThird},
+		{"Halfway", POILocationType::Halfway},
+		{"TwoThirds", POILocationType::TwoThirds},
+		{"ThreeQuarters", POILocationType::ThreeQuarters},
+		{"Furthest", POILocationType::Furthest},
+		{"RandomBand", POILocationType::RandomBand},
+		{"RandomSafe", POILocationType::RandomSafe},
+		{"Random", POILocationType::Random},
+	};
+
+	for (auto const & entry : locations) {
+		if (_stricmp(name, entry.Name) == 0) {
+			location = entry.Location;
+			return true;
+		}
+	}
+	return false;
+}
+
+
+TypeList<POILocationType> Parse_POI_Locations(char const * section, std::string const & value)
+{
+	TypeList<POILocationType> locations;
+	std::size_t start = 0;
+
+	while (start < value.size()) {
+		std::size_t end = value.find(',', start);
+		if (end == std::string::npos) {
+			end = value.size();
+		}
+
+		std::size_t first = value.find_first_not_of(" \t", start);
+		if (first != std::string::npos && first < end) {
+			std::size_t last = value.find_last_not_of(" \t", end - 1);
+			std::string name = value.substr(first, last - first + 1);
+			POILocationType location;
+			if (Parse_POI_Location(name.c_str(), location)) {
+				locations.Add(location);
+			} else {
+				DebugString("[%s] POILocations contains unknown value '%s'\n", section, name.c_str());
+			}
+		}
+
+		start = end + 1;
+	}
+
+	return locations;
+}
+
+}
+
+
 /***********************************************************************************************
  * HouseTypeClass::HouseTypeClass -- Constructor for house type objects.                       *
  *                                                                                             *
@@ -87,7 +153,17 @@ HouseTypeClass::HouseTypeClass(char const * ininame) :
 	IsMultiplay(false),
 	IsMultiplayPassive(false),
 	IsWallOwner(true),
-	IsSmartAI(false)
+	IsSmartAI(false),
+	POIs(),
+	POIsBaseCount(0),
+	POIsPerOpponent(0),
+	POIsMax(-1),
+	POILocations(),
+	POILocRandomBandMin(0.0f),
+	POILocRandomBandMax(1.0f),
+	POISafeDistance(0),
+	POILocJitter(0),
+	POIDoubleUpWithEnemies(false)
 {
 	Create_ID();
 	Suffix[0] = '\0';
@@ -186,6 +262,32 @@ bool HouseTypeClass::Read_INI(CCINIClass const & ini)
 		IsWallOwner = ini.Get_Bool(Name(), "WallOwner", IsWallOwner);
 		IsSmartAI = ini.Get_Bool(Name(), "SmartAI", IsSmartAI);
 
+		POIs = ini.Get_BuildingType_List(ini, Name(), "POIs", POIs);
+		POIsBaseCount = ini.Get_Int(Name(), "POIsBaseCount", POIsBaseCount);
+		POIsPerOpponent = ini.Get_Int(Name(), "POIsPerOpponent", POIsPerOpponent);
+		POIsMax = ini.Get_Int(Name(), "POIsMax", POIsMax);
+		std::string poi_locations = ini.Get_String(Name(), "POILocations");
+		if (!poi_locations.empty()) {
+			POILocations = Parse_POI_Locations(Name(), poi_locations);
+		}
+		std::string poi_random_bands = ini.Get_String(Name(), "POILocRandomBands");
+		if (!poi_random_bands.empty()) {
+			float min_distance;
+			float max_distance;
+			char trailing;
+			if (std::sscanf(poi_random_bands.c_str(), " %f , %f %c", &min_distance, &max_distance, &trailing) == 2 &&
+				std::isfinite(min_distance) && std::isfinite(max_distance) &&
+				min_distance >= 0.0f && min_distance <= max_distance) {
+				POILocRandomBandMin = min_distance;
+				POILocRandomBandMax = max_distance;
+			} else {
+				DebugString("[%s] POILocRandomBands must be two nonnegative percentages in ascending order\n", Name());
+			}
+		}
+		POISafeDistance = ini.Get_Int(Name(), "POISafeDistance", POISafeDistance);
+		POILocJitter = ini.Get_Int(Name(), "POILocJitter", POILocJitter);
+		POIDoubleUpWithEnemies = ini.Get_Bool(Name(), "POIDoubleUpWithEnemies", POIDoubleUpWithEnemies);
+
 		SideType oldside = Side;
 		Side = ini.Get_Side(Name(), "Side", Side);
 
@@ -227,6 +329,22 @@ void HouseTypeClass::Compute_CRC(CRCEngine & crc) const
 	crc(Suffix, strlen(Suffix));
 	crc(Prefix);
 	crc(IsMultiplay);
+	crc(POIs.Count());
+	for (int index = 0; index < POIs.Count(); index++) {
+		crc(POIs[index]);
+	}
+	crc(POIsBaseCount);
+	crc(POIsPerOpponent);
+	crc(POIsMax);
+	crc(POILocations.Count());
+	for (int index = 0; index < POILocations.Count(); index++) {
+		crc(static_cast<int>(POILocations[index]));
+	}
+	crc(POILocRandomBandMin);
+	crc(POILocRandomBandMax);
+	crc(POISafeDistance);
+	crc(POILocJitter);
+	crc(POIDoubleUpWithEnemies);
 }
 
 
