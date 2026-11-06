@@ -243,7 +243,7 @@ TechnoClass::TechnoClass(HouseClass * house) :
 	IsLeader(false),
 	IsALoaner(false),
 	IsADecoy(false),
-	DecoyLifetimeTimer(0),
+	DecoyLifetimeTimer(-1),
 	IsLocked(false),
 	IsInRecoilState(false),
 	IsTethered(false),
