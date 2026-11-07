@@ -2935,7 +2935,14 @@ static bool IsReciprocalRequest(POIPlacementRequest const & Existing, int Buildi
 /// <returns>Returns requests in house-type, start-waypoint, and rule-list order.</returns>
 static std::vector<POIPlacementRequest> Build_POI_Placement_Requests(void)
 {
+	struct HouseRequestLimit {
+		HouseClass * House;
+		std::int64_t Maximum;
+		std::int64_t Accepted;
+	};
+
 	std::vector<POIPlacementRequest> Requests;
+	std::vector<HouseRequestLimit> HouseLimits;
 	std::vector<HouseClass *> ActiveHouses = ActiveStartHouses();
 	if (ActiveHouses.empty()) {
 		return Requests;
@@ -2961,41 +2968,68 @@ static std::vector<POIPlacementRequest> Build_POI_Placement_Requests(void)
 			static_cast<std::int64_t>(Type->POIsPerOpponent) * std::max(0, static_cast<int>(ActiveHouses.size()) - 2);
 		PerInstance = std::max<std::int64_t>(0, PerInstance);
 
-		std::int64_t Total = PerInstance * static_cast<std::int64_t>(Instances.size());
+		std::int64_t CappedTotal = PerInstance * static_cast<std::int64_t>(Instances.size());
 		if (Type->POIsMax >= 0) {
-			Total = std::min<std::int64_t>(Total, Type->POIsMax);
+			CappedTotal = std::min<std::int64_t>(CappedTotal, Type->POIsMax);
 		}
 
-		std::int64_t PerHouse = Total / static_cast<std::int64_t>(Instances.size());
-		std::int64_t Remainder = Total % static_cast<std::int64_t>(Instances.size());
+		std::int64_t PerHouseLimit = CappedTotal / static_cast<std::int64_t>(Instances.size());
+		std::int64_t Remainder = CappedTotal % static_cast<std::int64_t>(Instances.size());
 
 		for (std::size_t InstanceIndex = 0; InstanceIndex < Instances.size(); InstanceIndex++) {
 			HouseClass * House = Instances[InstanceIndex];
-			std::int64_t Count = PerHouse + (InstanceIndex < static_cast<std::size_t>(Remainder) ? 1 : 0);
+			std::int64_t HouseLimit = Type->POIsMax >= 0
+				? PerHouseLimit + (InstanceIndex < static_cast<std::size_t>(Remainder) ? 1 : 0)
+				: PerInstance;
+			HouseLimits.push_back(HouseRequestLimit{House, HouseLimit, 0});
 			std::array<std::vector<int>, POI_LOCATION_COUNT> AssignedOpponents;
 
-			for (std::int64_t POIIndex = 0; POIIndex < Count; POIIndex++) {
+			for (std::int64_t POIIndex = 0; POIIndex < PerInstance; POIIndex++) {
 				int Building = Type->POIs[static_cast<int>(POIIndex % Type->POIs.Count())];
 				POILocationType Location = Type->POILocations[static_cast<int>(POIIndex % Type->POILocations.Count())];
 				int OtherWaypoint = -1;
 
 				if (NeedsOpponentStart(Location)) {
+					HouseClass * OpponentChoice = nullptr;
 					for (HouseClass * Opponent : ActiveHouses) {
-						if (Opponent == House || AlreadyUsedOpponent(AssignedOpponents, Location, Opponent->SpawnWaypoint)) {
+						bool IsAlly = House->Is_Ally(Opponent) && Opponent->Is_Ally(House);
+						if (Opponent == House || IsAlly ||
+							AlreadyUsedOpponent(AssignedOpponents, Location, Opponent->SpawnWaypoint)) {
 							continue;
 						}
-						if (Location == POILocationType::NearEnemy &&
-							House->Is_Ally(Opponent) && Opponent->Is_Ally(House)) {
-							continue;
-						}
-						OtherWaypoint = Opponent->SpawnWaypoint;
-						AssignedOpponents[static_cast<std::size_t>(Location)].push_back(OtherWaypoint);
+						OpponentChoice = Opponent;
 						break;
 					}
 
-					if (OtherWaypoint < 0) {
+					if (OpponentChoice == nullptr && Location != POILocationType::NearEnemy) {
+						for (HouseClass * Opponent : ActiveHouses) {
+							if (Opponent == House || AlreadyUsedOpponent(AssignedOpponents, Location,
+								Opponent->SpawnWaypoint)) {
+								continue;
+							}
+							if (House->Is_Ally(Opponent) && Opponent->Is_Ally(House)) {
+								OpponentChoice = Opponent;
+								break;
+							}
+						}
+					}
+
+					if (OpponentChoice == nullptr) {
+						for (HouseClass * Opponent : ActiveHouses) {
+							if (Opponent == House ||
+								(House->Is_Ally(Opponent) && Opponent->Is_Ally(House))) {
+								continue;
+							}
+							OpponentChoice = Opponent;
+							break;
+						}
+					}
+
+					if (OpponentChoice == nullptr) {
 						continue;
 					}
+					OtherWaypoint = OpponentChoice->SpawnWaypoint;
+					AssignedOpponents[static_cast<std::size_t>(Location)].push_back(OtherWaypoint);
 				}
 
 				int const RequestedStartWaypoint = House->SpawnWaypoint;
@@ -3046,7 +3080,50 @@ static std::vector<POIPlacementRequest> Build_POI_Placement_Requests(void)
 		}
 	}
 
-	return Requests;
+	std::vector<POIPlacementRequest> CappedRequests;
+	CappedRequests.reserve(Requests.size());
+	for (POIPlacementRequest const & Request : Requests) {
+		bool WithinLimits = true;
+		std::vector<std::size_t> LimitAssignments;
+		for (std::size_t RequesterIndex = 0; RequesterIndex < Request.RequestingHouses.size(); RequesterIndex++) {
+			HouseClass * Requester = Request.RequestingHouses[RequesterIndex];
+			bool TypeAlreadyAssigned = std::any_of(Request.RequestingHouses.begin(),
+				Request.RequestingHouses.begin() + RequesterIndex,
+				[&](HouseClass * EarlierRequester) { return EarlierRequester->Class == Requester->Class; });
+			if (TypeAlreadyAssigned) {
+				continue;
+			}
+
+			auto Limit = HouseLimits.end();
+			for (HouseClass * TypeRequester : Request.RequestingHouses) {
+				if (TypeRequester->Class != Requester->Class) {
+					continue;
+				}
+				Limit = std::find_if(HouseLimits.begin(), HouseLimits.end(),
+					[&](HouseRequestLimit const & Entry) {
+						return Entry.House == TypeRequester && Entry.Accepted < Entry.Maximum;
+					});
+				if (Limit != HouseLimits.end()) {
+					break;
+				}
+			}
+			if (Limit == HouseLimits.end()) {
+				WithinLimits = false;
+				break;
+			}
+			LimitAssignments.push_back(static_cast<std::size_t>(Limit - HouseLimits.begin()));
+		}
+		if (!WithinLimits) {
+			continue;
+		}
+
+		for (std::size_t LimitIndex : LimitAssignments) {
+			++HouseLimits[LimitIndex].Accepted;
+		}
+		CappedRequests.push_back(Request);
+	}
+
+	return CappedRequests;
 }
 
 
