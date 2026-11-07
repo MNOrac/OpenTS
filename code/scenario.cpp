@@ -3378,7 +3378,8 @@ static bool Is_POI_Placement_Valid(POIPlacementRequest const & Request, Building
 	std::vector<POIPlacedLocation> const & PlacedPOIs)
 {
 	if (!Is_POI_Cell_In_Map(PlacementCell) ||
-		!Is_POI_Location_Safe(Request, PlacementCell, ActiveHouses, PlacedPOIs)) {
+		(Request.Location != POILocationType::Random &&
+			!Is_POI_Location_Safe(Request, PlacementCell, ActiveHouses, PlacedPOIs))) {
 		return false;
 	}
 
@@ -3571,9 +3572,11 @@ static void Place_POI_Request(POIPlacementRequest const & Request, std::vector<H
 		DebugString("POI request for building type %d could not use RandomSafe; trying Random\n",
 			Request.Building);
 	}
+	POIPlacementRequest RandomRequest = Request;
+	RandomRequest.Location = POILocationType::Random;
 	for (int Attempt = 0; Attempt < POI_PLACEMENT_ATTEMPTS; Attempt++) {
 		Cell Candidate = Map.Pick_Random_Location();
-		if (Try_Place_POI(Request, Type, Owner, Candidate, ActiveHouses, PlacedPOIs)) {
+		if (Try_Place_POI(RandomRequest, Type, Owner, Candidate, ActiveHouses, PlacedPOIs)) {
 			PlacedPOIs.push_back(POIPlacedLocation{Candidate, Request.RequestingHouses});
 			return;
 		}
