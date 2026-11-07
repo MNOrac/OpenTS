@@ -82,6 +82,7 @@ bool Parse_POI_Location(char const * name, POILocationType & location)
 		{"RandomSafe", POILocationType::RandomSafe},
 		{"Random", POILocationType::Random},
 		{"Behind", POILocationType::Behind},
+		{"NearEnemy", POILocationType::NearEnemy},
 	};
 
 	for (auto const & entry : locations) {

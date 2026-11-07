@@ -2819,6 +2819,7 @@ static bool NeedsOpponentStart(POILocationType Location)
 		case POILocationType::Furthest:
 		case POILocationType::RandomBand:
 		case POILocationType::Behind:
+		case POILocationType::NearEnemy:
 			return true;
 
 		case POILocationType::RandomSafe:
@@ -2981,6 +2982,10 @@ static std::vector<POIPlacementRequest> Build_POI_Placement_Requests(void)
 				if (NeedsOpponentStart(Location)) {
 					for (HouseClass * Opponent : ActiveHouses) {
 						if (Opponent == House || AlreadyUsedOpponent(AssignedOpponents, Location, Opponent->SpawnWaypoint)) {
+							continue;
+						}
+						if (Location == POILocationType::NearEnemy &&
+							House->Is_Ally(Opponent) && Opponent->Is_Ally(House)) {
 							continue;
 						}
 						OtherWaypoint = Opponent->SpawnWaypoint;
@@ -3153,6 +3158,65 @@ static Cell POI_Fractional_Cell(POIPlacementRequest const & Request)
 }
 
 
+static std::vector<Cell> POI_Directional_Ring_Candidates(Cell const & Center, double DirectionX, double DirectionY,
+	int SafeDistance, int MinX, int MaxX, int MinY, int MaxY)
+{
+	std::vector<Cell> Candidates;
+	if (!Is_POI_Cell_In_Map(Center) || (DirectionX == 0.0 && DirectionY == 0.0)) {
+		return Candidates;
+	}
+
+	if (SafeDistance == 0) {
+		Candidates.push_back(Center);
+		return Candidates;
+	}
+
+	std::int64_t SafeDistanceSquared = static_cast<std::int64_t>(SafeDistance) * SafeDistance;
+	std::int64_t OuterDistance = static_cast<std::int64_t>(SafeDistance) + 1;
+	std::int64_t OuterDistanceSquared = OuterDistance * OuterDistance;
+	for (int Y = MinY; Y < MaxY; Y++) {
+		for (int X = MinX; X < MaxX; X++) {
+			std::int64_t OffsetX = static_cast<std::int64_t>(X) - Center.X;
+			std::int64_t OffsetY = static_cast<std::int64_t>(Y) - Center.Y;
+			std::int64_t DistanceSquared = OffsetX * OffsetX + OffsetY * OffsetY;
+			if (DistanceSquared < SafeDistanceSquared || DistanceSquared >= OuterDistanceSquared) {
+				continue;
+			}
+
+			if (OffsetX * DirectionX + OffsetY * DirectionY >= 0.0) {
+				Candidates.push_back(Cell(X, Y));
+			}
+		}
+	}
+
+	std::sort(Candidates.begin(), Candidates.end(), [&](Cell const & Left, Cell const & Right) {
+		double LeftX = Left.X - Center.X;
+		double LeftY = Left.Y - Center.Y;
+		double RightX = Right.X - Center.X;
+		double RightY = Right.Y - Center.Y;
+		double LeftAngle = std::atan2(std::abs(DirectionX * LeftY - DirectionY * LeftX),
+			DirectionX * LeftX + DirectionY * LeftY);
+		double RightAngle = std::atan2(std::abs(DirectionX * RightY - DirectionY * RightX),
+			DirectionX * RightX + DirectionY * RightY);
+		if (LeftAngle != RightAngle) {
+			return LeftAngle < RightAngle;
+		}
+
+		std::int64_t LeftDistance = POI_Cell_Distance_Squared(Left, Center);
+		std::int64_t RightDistance = POI_Cell_Distance_Squared(Right, Center);
+		if (LeftDistance != RightDistance) {
+			return LeftDistance < RightDistance;
+		}
+		if (Left.Y != Right.Y) {
+			return Left.Y < Right.Y;
+		}
+		return Left.X < Right.X;
+	});
+
+	return Candidates;
+}
+
+
 /// <summary>
 /// Returns candidate cells for the request's configured placement rule.
 /// Random placement is selected directly by the placement routine.
@@ -3258,55 +3322,26 @@ static std::vector<Cell> POI_Location_Candidates(POIPlacementRequest const & Req
 			}
 
 			int SafeDistance = std::max(0, Requester->Class->POISafeDistance);
-			if (SafeDistance == 0) {
-				Candidates.push_back(Start);
+			Candidates = POI_Directional_Ring_Candidates(Start, -DeltaX, -DeltaY, SafeDistance,
+				MinX, MaxX, MinY, MaxY);
+			break;
+		}
+
+		case POILocationType::NearEnemy: {
+			if (Request.StartWaypoint < 0 || Request.OtherStartWaypoint < 0 ||
+				Request.RequestingHouses.empty()) {
 				break;
 			}
 
-			std::int64_t SafeDistanceSquared = static_cast<std::int64_t>(SafeDistance) * SafeDistance;
-			std::int64_t OuterDistance = static_cast<std::int64_t>(SafeDistance) + 1;
-			std::int64_t OuterDistanceSquared = OuterDistance * OuterDistance;
-			for (int Y = MinY; Y < MaxY; Y++) {
-				for (int X = MinX; X < MaxX; X++) {
-					std::int64_t OffsetX = static_cast<std::int64_t>(X) - Start.X;
-					std::int64_t OffsetY = static_cast<std::int64_t>(Y) - Start.Y;
-					std::int64_t DistanceSquared = OffsetX * OffsetX + OffsetY * OffsetY;
-					if (DistanceSquared < SafeDistanceSquared || DistanceSquared >= OuterDistanceSquared) {
-						continue;
-					}
-
-					double BehindDot = OffsetX * -DeltaX + OffsetY * -DeltaY;
-					if (BehindDot >= 0.0) {
-						Candidates.push_back(Cell(X, Y));
-					}
-				}
+			HouseClass * Requester = Request.RequestingHouses[0];
+			if (Requester == nullptr || Requester->Class == nullptr ||
+				!Is_POI_Cell_In_Map(Start) || !Is_POI_Cell_In_Map(Other)) {
+				break;
 			}
 
-			std::sort(Candidates.begin(), Candidates.end(), [&](Cell const & Left, Cell const & Right) {
-				double LeftX = Left.X - Start.X;
-				double LeftY = Left.Y - Start.Y;
-				double RightX = Right.X - Start.X;
-				double RightY = Right.Y - Start.Y;
-				double AwayX = -DeltaX;
-				double AwayY = -DeltaY;
-				double LeftAngle = std::atan2(std::abs(AwayX * LeftY - AwayY * LeftX),
-					AwayX * LeftX + AwayY * LeftY);
-				double RightAngle = std::atan2(std::abs(AwayX * RightY - AwayY * RightX),
-					AwayX * RightX + AwayY * RightY);
-				if (LeftAngle != RightAngle) {
-					return LeftAngle < RightAngle;
-				}
-
-				std::int64_t LeftDistance = POI_Cell_Distance_Squared(Left, Start);
-				std::int64_t RightDistance = POI_Cell_Distance_Squared(Right, Start);
-				if (LeftDistance != RightDistance) {
-					return LeftDistance < RightDistance;
-				}
-				if (Left.Y != Right.Y) {
-					return Left.Y < Right.Y;
-				}
-				return Left.X < Right.X;
-			});
+			int SafeDistance = std::max(0, Requester->Class->POISafeDistance);
+			Candidates = POI_Directional_Ring_Candidates(Other, Start.X - Other.X, Start.Y - Other.Y,
+				SafeDistance, MinX, MaxX, MinY, MaxY);
 			break;
 		}
 
@@ -3517,7 +3552,8 @@ static void Place_POI_Request(POIPlacementRequest const & Request, std::vector<H
 	int MaxJitter = std::max(Map.MapRect.Width, Map.MapRect.Height);
 	ParallelJitter = std::min(ParallelJitter, MaxJitter);
 	LateralJitter = std::min(LateralJitter, MaxJitter);
-	std::size_t PlacementAttempts = Request.Location == POILocationType::Behind
+	std::size_t PlacementAttempts = Request.Location == POILocationType::Behind ||
+		Request.Location == POILocationType::NearEnemy
 		? Candidates.size()
 		: POI_PLACEMENT_ATTEMPTS;
 	for (std::size_t Attempt = 0; Attempt < PlacementAttempts; Attempt++) {
@@ -3528,7 +3564,7 @@ static void Place_POI_Request(POIPlacementRequest const & Request, std::vector<H
 			if (Candidates.empty()) {
 				break;
 			}
-			if (Request.Location == POILocationType::Behind) {
+			if (Request.Location == POILocationType::Behind || Request.Location == POILocationType::NearEnemy) {
 				Candidate = Candidates[Attempt];
 			} else {
 				int CandidateIndex = Random_Pick(0, static_cast<int>(Candidates.size()) - 1);

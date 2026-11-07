@@ -30,6 +30,7 @@ enum class POILocationType {
 	RandomSafe,
 	Random,
 	Behind,
+	NearEnemy,
 	Count,
 };
 
