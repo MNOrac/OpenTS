@@ -3499,7 +3499,7 @@ static void Place_POI_Request(POIPlacementRequest const & Request, std::vector<H
 		DebugString("POI request for building type %d has no owner\n", Request.Building);
 		return;
 	}
-	bool ApplyJitter = NeedsOpponentStart(Request.Location) && Request.Location != POILocationType::Behind;
+	bool ApplyJitter = NeedsOpponentStart(Request.Location);
 	bool ReuseCandidate = IsShareableLocation(Request.Location);
 	if (Request.Location == POILocationType::Furthest) {
 		Candidates.erase(std::remove_if(Candidates.begin(), Candidates.end(), [&](Cell const & Candidate) {
