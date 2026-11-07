@@ -3549,7 +3549,28 @@ static void Place_POI_Request(POIPlacementRequest const & Request, std::vector<H
 		}
 	}
 
-	DebugString("POI request for building type %d could not use its configured location; trying Random\n", Request.Building);
+	if (Request.Location != POILocationType::RandomSafe && Request.Location != POILocationType::Random) {
+		DebugString("POI request for building type %d could not use its configured location; trying RandomSafe\n",
+			Request.Building);
+
+		POIPlacementRequest SafeRequest = Request;
+		SafeRequest.Location = POILocationType::RandomSafe;
+		std::vector<Cell> SafeCandidates = POI_Location_Candidates(SafeRequest, ActiveHouses, PlacedPOIs);
+		for (int Attempt = 0; Attempt < POI_PLACEMENT_ATTEMPTS && !SafeCandidates.empty(); Attempt++) {
+			int CandidateIndex = Random_Pick(0, static_cast<int>(SafeCandidates.size()) - 1);
+			Cell Candidate = SafeCandidates[CandidateIndex];
+			SafeCandidates.erase(SafeCandidates.begin() + CandidateIndex);
+			if (Try_Place_POI(SafeRequest, Type, Owner, Candidate, ActiveHouses, PlacedPOIs)) {
+				PlacedPOIs.push_back(POIPlacedLocation{Candidate, Request.RequestingHouses});
+				return;
+			}
+		}
+	}
+
+	if (Request.Location != POILocationType::Random) {
+		DebugString("POI request for building type %d could not use RandomSafe; trying Random\n",
+			Request.Building);
+	}
 	for (int Attempt = 0; Attempt < POI_PLACEMENT_ATTEMPTS; Attempt++) {
 		Cell Candidate = Map.Pick_Random_Location();
 		if (Try_Place_POI(Request, Type, Owner, Candidate, ActiveHouses, PlacedPOIs)) {
