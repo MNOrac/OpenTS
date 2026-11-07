@@ -16115,6 +16115,23 @@ PBarrelThickness:
       source: code/techtype.cpp
       guard: null
     level: TechnoTypeClass
+POIDoubleUpWithAllies:
+  key: POIDoubleUpWithAllies
+  scopes:
+  - applies_to: *id010
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: boolean
+    status: generated
+    _provenance:
+      default_candidate: 'no'
+      declared_in: HouseTypeClass
+      member: POIDoubleUpWithAllies
+      source: code/houstype.cpp
+      guard: null
+    level: HouseTypeClass
 POIDoubleUpWithEnemies:
   key: POIDoubleUpWithEnemies
   scopes:
@@ -16200,6 +16217,23 @@ POILocations:
       source: code/houstype.cpp
       guard: null
     level: HouseTypeClass
+POINeutral:
+  key: POINeutral
+  scopes:
+  - applies_to: *id010
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: boolean
+    status: generated
+    _provenance:
+      default_candidate: 'yes'
+      declared_in: HouseTypeClass
+      member: POINeutral
+      source: code/houstype.cpp
+      guard: null
+    level: HouseTypeClass
 POISafeDistance:
   key: POISafeDistance
   scopes:
@@ -16268,8 +16302,8 @@ POIsMax:
       source: code/houstype.cpp
       guard: null
     level: HouseTypeClass
-POIsPerOpponent:
-  key: POIsPerOpponent
+POIsPerExtraPlayer:
+  key: POIsPerExtraPlayer
   scopes:
   - applies_to: *id010
     file: rules.ini

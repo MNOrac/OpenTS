@@ -6,4 +6,4 @@ when_omitted:
   value: ""
 ---
 
-Lists the placement rules for this house type's point-of-interest requests. Separate rule names with commas; names are case-insensitive, and unknown names are logged and skipped. Accepted names are `OneQuarter`, `OneThird`, `Halfway`, `TwoThirds`, `ThreeQuarters`, `Furthest`, `RandomBand`, `RandomSafe`, and `Random`. [Points of interest](/systems/points-of-interest/) explains how the game cycles through the rules and places each structure.
+Lists the placement rules for this house type's point-of-interest requests. Separate rule names with commas; names are case-insensitive, and unknown names are logged and skipped. Accepted names are `OneQuarter`, `OneThird`, `Halfway`, `TwoThirds`, `ThreeQuarters`, `Furthest`, `RandomBand`, `RandomSafe`, `Random`, and `Behind`. [Points of interest](/systems/points-of-interest/) explains how the game cycles through the rules and places each structure.
