@@ -81,6 +81,7 @@ bool Parse_POI_Location(char const * name, POILocationType & location)
 		{"RandomBand", POILocationType::RandomBand},
 		{"RandomSafe", POILocationType::RandomSafe},
 		{"Random", POILocationType::Random},
+		{"Behind", POILocationType::Behind},
 	};
 
 	for (auto const & entry : locations) {
@@ -171,7 +172,9 @@ HouseTypeClass::HouseTypeClass(char const * ininame) :
 	POISafeDistance(0),
 	POILocJitterParallel(0),
 	POILocJitterLateral(0),
-	POIDoubleUpWithEnemies(false)
+	POIDoubleUpWithEnemies(false),
+	POIDoubleUpWithAllies(false),
+	POINeutral(true)
 {
 	Create_ID();
 	Suffix[0] = '\0';
@@ -272,7 +275,7 @@ bool HouseTypeClass::Read_INI(CCINIClass const & ini)
 
 		POIs = ini.Get_BuildingType_List(ini, Name(), "POIs", POIs);
 		POIsBaseCount = ini.Get_Int(Name(), "POIsBaseCount", POIsBaseCount);
-		POIsPerOpponent = ini.Get_Int(Name(), "POIsPerOpponent", POIsPerOpponent);
+		POIsPerOpponent = ini.Get_Int(Name(), "POIsPerExtraPlayer", POIsPerOpponent);
 		POIsMax = ini.Get_Int(Name(), "POIsMax", POIsMax);
 		std::string POILocations = ini.Get_String(Name(), "POILocations");
 		if (!POILocations.empty()) {
@@ -296,6 +299,8 @@ bool HouseTypeClass::Read_INI(CCINIClass const & ini)
 		POILocJitterParallel = ini.Get_Int(Name(), "POILocJitterParallel", POILocJitterParallel);
 		POILocJitterLateral = ini.Get_Int(Name(), "POILocJitterLateral", POILocJitterLateral);
 		POIDoubleUpWithEnemies = ini.Get_Bool(Name(), "POIDoubleUpWithEnemies", POIDoubleUpWithEnemies);
+		POIDoubleUpWithAllies = ini.Get_Bool(Name(), "POIDoubleUpWithAllies", POIDoubleUpWithAllies);
+		POINeutral = ini.Get_Bool(Name(), "POINeutral", POINeutral);
 
 		SideType oldside = Side;
 		Side = ini.Get_Side(Name(), "Side", Side);
@@ -355,6 +360,8 @@ void HouseTypeClass::Compute_CRC(CRCEngine & crc) const
 	crc(POILocJitterParallel);
 	crc(POILocJitterLateral);
 	crc(POIDoubleUpWithEnemies);
+	crc(POIDoubleUpWithAllies);
+	crc(POINeutral);
 }
 
 

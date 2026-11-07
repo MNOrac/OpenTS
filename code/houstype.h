@@ -29,6 +29,7 @@ enum class POILocationType {
 	RandomBand,
 	RandomSafe,
 	Random,
+	Behind,
 	Count,
 };
 
@@ -126,8 +127,7 @@ class HouseTypeClass : public AbstractTypeClass
 		int POIsBaseCount;
 
 		/*
-		 * The number of additional POIs to attempt to add per additional other player after
-		 * the first.
+		 * The number of additional POIs to attempt to add per active player after the second.
 		 */
 		int POIsPerOpponent;
 
@@ -173,12 +173,23 @@ class HouseTypeClass : public AbstractTypeClass
 		int POILocJitterLateral;
 
 		/*
-		 * POIDoubleUpWithEnemies controls whether other players' POI rules can be batched
-		 * together with this house. If they are, two opposing players' POIs at Halfway will be
-		 * consolidated into one single POI. The same goes for one player's OneThird and another
-		 * player's TwoThirds, for instance.
+		 * If this is true for either requester, reciprocal fractional requests can share one
+		 * neutral-owned POI between enemies.
 		 */
 		bool POIDoubleUpWithEnemies;
+
+		/*
+		 * If this is true for either requester, reciprocal fractional requests can share one
+		 * POI between mutual allies.
+		 */
+		bool POIDoubleUpWithAllies;
+
+		/*
+		 * If this is true, placed POIs belong to the Neutral house; otherwise they belong to
+		 * the house that requested them. Player-owned POIs can share only with allies that also
+		 * use player ownership.
+		 */
+		bool POINeutral;
 
 
 		//------------------------------------------------------------------------
