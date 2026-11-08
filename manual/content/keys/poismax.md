@@ -1,9 +1,9 @@
 ---
 key: POIsMax
-summary: The maximum point-of-interest request count across active instances of this house type.
+summary: The maximum number of point-of-interest placements attributed to this house type across its active instances.
 when_omitted:
   kind: value
   value: "-1"
 ---
 
-Caps the total number of point-of-interest requests across all active houses of this type. Any negative value leaves the total uncapped. The game divides a capped total across the instances before placement; see [Points of interest](/systems/points-of-interest/).
+Limits the point-of-interest placements attributed to this house type across its active instances. The cap applies after reciprocal requests merge; a shared placement counts once for each distinct requesting house type. Any negative value leaves the count uncapped. [Points of interest](/systems/points-of-interest/) explains how the cap is distributed among instances.

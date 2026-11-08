@@ -2928,9 +2928,7 @@ static bool IsReciprocalRequest(POIPlacementRequest const & Existing, int Buildi
 
 
 /// <summary>
-/// Builds requests from active houses' POI rules, applying per-instance counts and the house-type cap.
-/// Matching reciprocal fractional requests are merged when the relationship-specific sharing key is enabled
-/// and both requesters use the same ownership setting.
+/// Builds requests from active houses' POI rules, merges eligible reciprocal requests, and applies the house-type cap.
 /// </summary>
 /// <returns>Returns requests in house-type, start-waypoint, and rule-list order.</returns>
 static std::vector<POIPlacementRequest> Build_POI_Placement_Requests(void)
@@ -3235,6 +3233,9 @@ static Cell POI_Fractional_Cell(POIPlacementRequest const & Request)
 }
 
 
+/// <summary>
+/// Returns map cells in the requested half of a safe-distance ring, ordered from the direction vector outward.
+/// </summary>
 static std::vector<Cell> POI_Directional_Ring_Candidates(Cell const & Center, double DirectionX, double DirectionY,
 	int SafeDistance, int MinX, int MaxX, int MinY, int MaxY)
 {

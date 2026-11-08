@@ -46,4 +46,4 @@ credit:
 - Orac
 ---
 
-House entries can configure point-of-interest structures, their placement rules, count, and ownership for skirmish and multiplayer matches. `Behind` searches the rear half of the `POISafeDistance` ring for a valid placement before trying random cells; paired-start jitter can shift its candidates, which still must pass placement checks. `POINeutral=no` gives the structure to the requesting player. Use `POIDoubleUpWithEnemies` for neutral-owned enemy requests and `POIDoubleUpWithAllies` for allied requests; a shared player-owned POI is randomly assigned to one of the two houses. `POIsPerExtraPlayer=` in each house-type section of `rules.ini` adds requests for active players beyond the second.
+House entries can configure point-of-interest structures, placement rules, counts, ownership, and sharing for skirmish and multiplayer matches. Paired-start rules prefer unused enemy starts, then unused allies where permitted; once no unused eligible start remains, they reuse an enemy start if one exists. Reciprocal fractional requests merge before `POIsMax` limits placements for each house type.
